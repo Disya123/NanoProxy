@@ -10,7 +10,7 @@ import (
 // Templates is the parsed *template.Template root for admin pages.
 // Each content page defines block {{define "content"}}; the layout provides
 // the surrounding chrome and calls {{template "content" .}}.
-var Templates = func() *template.Template {
+var Templates = func() map[string]*template.Template {
 	funcs := template.FuncMap{
 		"fmtTime": func(ms int64) string {
 			return time.UnixMilli(ms).Format("2006-01-02 15:04:05")
@@ -45,8 +45,19 @@ var Templates = func() *template.Template {
 			return formatFloat(float64(cached)/float64(prompt)*100, 1) + "%"
 		},
 	}
-	t := template.Must(template.New("").Funcs(funcs).ParseFS(assets, "web/templates/*.html"))
-	return t
+	
+	layout := template.Must(template.New("layout.html").Funcs(funcs).ParseFS(assets, "web/templates/layout.html"))
+	
+	pages := []string{"dashboard", "keys", "login", "requests", "settings"}
+	tmpls := make(map[string]*template.Template)
+	
+	for _, page := range pages {
+		t := template.Must(layout.Clone())
+		t = template.Must(t.ParseFS(assets, "web/templates/"+page+".html"))
+		tmpls[page] = t
+	}
+	
+	return tmpls
 }()
 
 // templatesFS returns the templates subdirectory as an fs.FS (for debugging).
@@ -60,7 +71,11 @@ func templatesFS() fs.FS {
 
 // RenderPage writes a single page wrapped in the layout.
 func RenderPage(w io.Writer, name string, data any) error {
-	return Templates.ExecuteTemplate(w, "layout.html", map[string]any{
+	t, ok := Templates[name]
+	if !ok {
+		panic("template not found: " + name)
+	}
+	return t.ExecuteTemplate(w, "layout.html", map[string]any{
 		"Page":   name,
 		"Data":   data,
 		"Active": name,
