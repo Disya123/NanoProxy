@@ -298,8 +298,8 @@ function renderRank(id, rows) {
 
 async function loadRecent() {
   try {
-    const rows = await api.get(`/admin/api/requests?limit=8`);
-    renderRequestsRows("recent-rows", rows, /*compact*/ true);
+    const res = await api.get(`/admin/api/requests?limit=8`);
+    renderRequestsRows("recent-rows", res.items || [], /*compact*/ true);
   } catch (e) { console.error("recent:", e); }
 }
 

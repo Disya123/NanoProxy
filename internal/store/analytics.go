@@ -89,42 +89,43 @@ func (s *Store) Summary(ctx context.Context, r Range) (Summary, error) {
 
 // TimePoint is one bucket in a time-series chart.
 type TimePoint struct {
-	Day           string  `json:"day"`            // "YYYY-MM-DD"
-	Requests      int     `json:"requests"`
-	Errors        int     `json:"errors"`
-	InputTokens   int64   `json:"input_tokens"`
-	OutputTokens  int64   `json:"output_tokens"`
-	CostUSD       float64 `json:"cost_usd"`
-	ToolErrors    int     `json:"tool_errors"`
+	Day          string  `json:"day"`
+	Requests     int     `json:"requests"`
+	Errors       int     `json:"errors"`
+	InputTokens  int64   `json:"input_tokens"`
+	OutputTokens int64   `json:"output_tokens"`
+	CachedTokens int64   `json:"cached_tokens"`
+	CostUSD      float64 `json:"cost_usd"`
+	ToolErrors   int     `json:"tool_errors"`
 }
 
-// TimeSeries returns one row per day across the range.
+// TimeSeries returns a day-by-day aggregate for the chart.
 func (s *Store) TimeSeries(ctx context.Context, r Range, apiKeyID int64) ([]TimePoint, error) {
 	fromMS, toMS := r.ResolveMS()
 	q := `SELECT day,
 	             SUM(requests), SUM(errors),
-	             SUM(input_tokens), SUM(output_tokens),
+	             SUM(input_tokens), SUM(output_tokens), SUM(cached_tokens),
 	             SUM(cost_usd), SUM(tool_errors)
 	      FROM daily_stats
 	      WHERE day >= ? AND day < ?
 	        AND (? = 0 OR api_key_id = ?)
 	      GROUP BY day
 	      ORDER BY day`
-	rows, err := s.DB.QueryContext(ctx, q,
-		fmtDay(fromMS), fmtDay(toMS), apiKeyID, apiKeyID)
+	rows, err := s.DB.QueryContext(ctx, q, fmtDay(fromMS), fmtDay(toMS), apiKeyID, apiKeyID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	out := make([]TimePoint, 0, 32)
+	var out []TimePoint
 	for rows.Next() {
-		var tp TimePoint
-		if err := rows.Scan(&tp.Day, &tp.Requests, &tp.Errors,
-			&tp.InputTokens, &tp.OutputTokens, &tp.CostUSD, &tp.ToolErrors); err != nil {
+		var p TimePoint
+		if err := rows.Scan(&p.Day, &p.Requests, &p.Errors,
+			&p.InputTokens, &p.OutputTokens, &p.CachedTokens,
+			&p.CostUSD, &p.ToolErrors); err != nil {
 			return nil, err
 		}
-		out = append(out, tp)
+		out = append(out, p)
 	}
 	return out, rows.Err()
 }
@@ -151,8 +152,8 @@ func (s *Store) TopKeys(ctx context.Context, r Range, limit int) ([]KeyTotal, er
 	             COALESCE(SUM(d.requests), 0),
 	             COALESCE(SUM(d.errors), 0),
 	             COALESCE(SUM(d.cost_usd), 0.0),
-	             COALESCE(SUM(d.input_tokens + d.output_tokens), 0),
-	             COALESCE(SUM(d.cached_tokens), 0)
+	             COALESCE(SUM(d.tokens), 0),
+	             COALESCE(SUM(d.cache_hits), 0)
 	      FROM api_keys k
 	      LEFT JOIN daily_key_totals d
 	        ON d.api_key_id = k.id
