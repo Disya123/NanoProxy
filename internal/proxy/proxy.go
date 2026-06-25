@@ -41,8 +41,11 @@ func New(cfg config.Config, st *store.Store, keys *KeyProvider) *Proxy {
 // getUpstream returns a shared HTTP client tuned for SSE streaming.
 func (p *Proxy) getUpstream() *http.Client {
 	if p.upstream == nil {
+		t := http.DefaultTransport.(*http.Transport).Clone()
+		t.DisableCompression = true
 		p.upstream = &http.Client{
-			Timeout: p.Cfg.Upstream.RequestTimeout,
+			Transport: t,
+			Timeout:   p.Cfg.Upstream.RequestTimeout,
 		}
 	}
 	return p.upstream
