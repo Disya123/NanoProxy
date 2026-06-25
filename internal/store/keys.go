@@ -192,7 +192,7 @@ func generateRawKey() (string, error) {
 }
 
 // HashKey is exposed because the auth middleware also needs it.
-func HashKey(secret, raw string) string { return hashKey(secret, raw) }
+func HashKey(secret, raw string) string { return hashKey([]byte(secret), raw) }
 
 func hashKey(secret []byte, raw string) string {
 	mac := hmac.New(sha256.New, secret)

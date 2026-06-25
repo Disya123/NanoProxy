@@ -25,6 +25,7 @@ type streamAccumulator struct {
 
 type toolCallStream struct {
 	ID        string
+	Type      string
 	Name      string
 	ArgsBuf   bytes.Buffer
 	ErrorFlag bool
