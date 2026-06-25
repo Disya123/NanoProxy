@@ -23,7 +23,6 @@
 
 :root {
   /* Surfaces — layered, never pure black. */
-  --bg:              #0a0b0d;
   --bg-elev:         #0e1014;
   --surface-1:       rgba(255, 255, 255, 0.025);
   --surface-2:       rgba(255, 255, 255, 0.045);
