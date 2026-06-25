@@ -34,7 +34,7 @@ services:
     stop_grace_period: 30s
     ports:
       - "${PROXY_PORT:-8080}:8080"               # public proxy (clients)
-      - "127.0.0.1:${ADMIN_PORT:-8081}:8081"     # admin dashboard — loopback-only on the host
+      - "${ADMIN_BIND:-127.0.0.1}:${ADMIN_PORT:-8081}:8081"     # admin dashboard
     environment:
       # Plain `${VAR}` references — supported by both docker compose v2 and
       # Portainer. Missing vars expand to an empty string; the Go binary
