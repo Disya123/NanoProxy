@@ -77,6 +77,46 @@
     return d;
   }
 
+  let ttEl = null;
+  function getTooltip() {
+    if (!ttEl) {
+      ttEl = document.createElement("div");
+      ttEl.style.position = "absolute";
+      ttEl.style.pointerEvents = "none";
+      ttEl.style.background = "rgba(10, 11, 13, 0.95)";
+      ttEl.style.border = "1px solid rgba(255,255,255,0.1)";
+      ttEl.style.color = "#fff";
+      ttEl.style.padding = "4px 8px";
+      ttEl.style.borderRadius = "4px";
+      ttEl.style.fontSize = "12px";
+      ttEl.style.fontFamily = "var(--font-mono, monospace)";
+      ttEl.style.zIndex = "9999";
+      ttEl.style.transform = "translate(-50%, -100%)";
+      ttEl.style.marginTop = "-8px";
+      ttEl.style.opacity = "0";
+      ttEl.style.transition = "opacity 0.1s";
+      ttEl.style.whiteSpace = "pre";
+      document.body.appendChild(ttEl);
+    }
+    return ttEl;
+  }
+
+  function bindTooltip(node, textGetter) {
+    node.addEventListener("mouseenter", (e) => {
+      const tt = getTooltip();
+      tt.textContent = typeof textGetter === 'function' ? textGetter() : textGetter;
+      tt.style.opacity = "1";
+    });
+    node.addEventListener("mousemove", (e) => {
+      const tt = getTooltip();
+      tt.style.left = e.pageX + "px";
+      tt.style.top = e.pageY + "px";
+    });
+    node.addEventListener("mouseleave", () => {
+      if (ttEl) ttEl.style.opacity = "0";
+    });
+  }
+
   /**
    * Render a line/area chart.
    * host: HTMLElement to render into.
@@ -181,12 +221,21 @@
       "stroke-linecap": "round",
     }));
 
-    // Data points (small dots).
-    for (const [x, y] of pts) {
+    // Data points (small dots) + tooltips.
+    for (let i = 0; i < n; i++) {
+      const [x, y] = pts[i];
       svg.appendChild(el("circle", {
         cx: x, cy: y, r: 2,
         fill: cssColor, stroke: "var(--bg, #0a0b0d)", "stroke-width": 1.5,
       }));
+      // Invisible hover rect
+      const hoverW = n > 1 ? innerW / (n - 1) : innerW;
+      const hoverRect = el("rect", {
+        x: x - hoverW / 2, y: padT, width: hoverW, height: innerH,
+        fill: "transparent", cursor: "pointer"
+      });
+      bindTooltip(hoverRect, `${data[i].day}: ${fmtAxisValue(data[i].value)}`);
+      svg.appendChild(hoverRect);
     }
 
     host.appendChild(svg);
@@ -318,6 +367,23 @@
     }));
     }
 
+    // Invisible hover rects for tooltips.
+    for (let i = 0; i < n; i++) {
+      const hoverW = n > 1 ? innerW / (n - 1) : innerW;
+      const hoverRect = el("rect", {
+        x: xOf(i) - hoverW / 2, y: padT, width: hoverW, height: innerH,
+        fill: "transparent", cursor: "pointer"
+      });
+      const tps = [data[i].day];
+      for (const sr of [...(opts.series || [])].reverse()) {
+        const v = Number(data[i][sr.key]) || 0;
+        tps.push(`${sr.label}: ${fmtAxisValue(v)}`);
+      }
+      tps.push(`Total: ${fmtAxisValue(totals[i])}`);
+      bindTooltip(hoverRect, tps.join("\n"));
+      svg.appendChild(hoverRect);
+    }
+
     host.appendChild(svg);
   }
 
@@ -354,7 +420,7 @@
       const dashArray = `${pct * 2 * Math.PI * r} ${2 * Math.PI * r}`;
       const dashOffset = -cumulativePct * 2 * Math.PI * r;
       
-      svg.appendChild(el("circle", {
+      const slice = el("circle", {
         cx: cx, cy: cy, r: r,
         fill: "transparent",
         stroke: d.color || colors[i % colors.length],
@@ -362,10 +428,16 @@
         "stroke-dasharray": dashArray,
         "stroke-dashoffset": dashOffset,
         "transform": `rotate(-90 ${cx} ${cy})`,
-        "stroke-linecap": pct > 0.05 ? "round" : "butt"
-      }, [
-        el("title", {}, [document.createTextNode(`${d.label}: ${fmtAxisValue(d.value)}`)])
-      ]));
+        "stroke-linecap": pct > 0.05 ? "round" : "butt",
+        cursor: "pointer",
+        style: "transition: stroke-width 0.1s"
+      });
+      
+      slice.addEventListener("mouseenter", () => slice.setAttribute("stroke-width", strokeWidth + 4));
+      slice.addEventListener("mouseleave", () => slice.setAttribute("stroke-width", strokeWidth));
+      bindTooltip(slice, `${d.label}: ${fmtAxisValue(d.value)}`);
+      
+      svg.appendChild(slice);
       
       cumulativePct += pct;
     });
@@ -471,14 +543,24 @@
            opacity = 0.2 + (val / maxValue) * 0.8;
         }
         
-        svg.appendChild(el("rect", {
+        const rect = el("rect", {
           x, y, width: cellSize, height: cellSize, rx: 2,
           fill: `rgba(16, 185, 129, ${opacity})`, // emerald-500 base
           stroke: "rgba(255,255,255,0.05)",
-          "stroke-width": 1
-        }, [
-           el("title", {}, [document.createTextNode(`${dayStr}: ${val}`)])
-        ]));
+          "stroke-width": 1,
+          cursor: "pointer",
+          style: "transition: transform 0.1s; transform-origin: center;"
+        });
+        
+        rect.addEventListener("mouseenter", () => {
+           rect.setAttribute("stroke", "rgba(255,255,255,0.3)");
+        });
+        rect.addEventListener("mouseleave", () => {
+           rect.setAttribute("stroke", "rgba(255,255,255,0.05)");
+        });
+        bindTooltip(rect, `${dayStr}: ${val}`);
+        
+        svg.appendChild(rect);
       });
     });
 
