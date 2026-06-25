@@ -511,7 +511,20 @@ async function loadKeys() {
       b.addEventListener("click", () => deleteKey(b.dataset.id)));
     tb.querySelectorAll('[data-action="copy"]').forEach((b) =>
       b.addEventListener("click", () => {
-        navigator.clipboard.writeText(b.dataset.key);
+        const text = b.dataset.key;
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(text);
+        } else {
+          const textArea = document.createElement("textarea");
+          textArea.value = text;
+          textArea.style.position = "fixed";
+          textArea.style.left = "-999999px";
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          try { document.execCommand('copy'); } catch (err) { console.error(err); }
+          textArea.remove();
+        }
         const orig = b.textContent;
         b.textContent = "Copied!";
         setTimeout(() => b.textContent = orig, 2000);
