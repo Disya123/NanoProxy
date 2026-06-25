@@ -76,6 +76,11 @@ func (h *AdminAPI) ListKeys(w http.ResponseWriter, r *http.Request) {
 			"budget_usd":  k.BudgetUSD,
 			"created_at":  k.CreatedAt.Format(time.RFC3339),
 			"created_at_ms": k.CreatedAt.UnixMilli(),
+			"raw_key":     k.RawKey,
+			"limit_interval":      k.LimitInterval,
+			"limit_input_tokens":  k.LimitInputTokens,
+			"limit_output_tokens": k.LimitOutputTokens,
+			"limit_total_tokens":  k.LimitTotalTokens,
 		}
 		if t, ok := byID[k.ID]; ok {
 			row["spend_30d"] = t.CostUSD
