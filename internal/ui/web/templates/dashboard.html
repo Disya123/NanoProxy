@@ -39,7 +39,7 @@
   <article class="card card-lg chart-card">
     <header class="card-head">
       <p class="card-eyebrow">series</p>
-      <h2 class="card-title">Cost over time</h2>
+      <h2 class="card-title">Activity & Spend</h2>
       <div class="card-tabs">
         <button class="tab is-active" data-series="cost">USD</button>
         <button class="tab" data-series="requests">Requests</button>
@@ -50,6 +50,7 @@
       <p class="empty">Loading…</p>
     </div>
   </article>
+
   <article class="card card-md">
     <header class="card-head">
       <p class="card-eyebrow">rank</p>
@@ -61,16 +62,25 @@
       <li class="rank-row skeleton" style="height:18px"></li>
     </ol>
   </article>
-  <article class="card card-sm">
+  
+  <article class="card card-md chart-card" id="card-donut-models">
     <header class="card-head">
-      <p class="card-eyebrow">rank</p>
-      <h2 class="card-title">Top models</h2>
+      <p class="card-eyebrow">distribution</p>
+      <h2 class="card-title">Model usage</h2>
     </header>
-    <ol class="rank" id="rank-models">
-      <li class="rank-row skeleton" style="height:18px"></li>
-      <li class="rank-row skeleton" style="height:18px"></li>
-      <li class="rank-row skeleton" style="height:18px"></li>
-    </ol>
+    <div class="chart-host" id="chart-donut-models" style="min-height: 200px;">
+      <p class="empty">Loading…</p>
+    </div>
+  </article>
+  
+  <article class="card card-lg chart-card" id="card-heatmap">
+    <header class="card-head">
+      <p class="card-eyebrow">activity</p>
+      <h2 class="card-title">Activity Heatmap</h2>
+    </header>
+    <div class="chart-host" id="chart-heatmap" style="min-height: 180px;">
+      <p class="empty">Loading…</p>
+    </div>
   </article>
 </section>
 

@@ -174,6 +174,20 @@ async function loadTimeSeries() {
     console.error("timeseries:", e);
   }
   renderMainChart();
+  renderHeatmapChart();
+}
+
+function renderHeatmapChart() {
+  const host = document.getElementById("chart-heatmap");
+  if (!host || !window.npChart) return;
+  if (!seriesCache.length) {
+    window.npChart.setEmpty(host, "No data");
+    return;
+  }
+  // Let's use requests for the heatmap
+  window.npChart.renderHeatmap(host, {
+    points: seriesCache.map((p) => ({ day: p.day, value: p.requests })),
+  });
 }
 
 function renderMainChart() {
@@ -256,7 +270,14 @@ async function loadTopKeys() {
 async function loadTopModels() {
   try {
     const rows = await api.get(`/admin/api/stats/breakdown?by=model&${rangeParams()}`);
-    renderRank("rank-models", rows);
+    
+    // Render donut chart
+    const host = document.getElementById("chart-donut-models");
+    if (host && window.npChart) {
+      window.npChart.renderDonut(host, {
+        data: rows.slice(0, 8).map(r => ({ label: r.model || "—", value: r.cost_usd }))
+      });
+    }
   } catch (e) { console.error("top models:", e); }
 }
 

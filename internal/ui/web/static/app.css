@@ -227,18 +227,12 @@ body::before {
 .bento {
   display: grid;
   grid-template-columns: 2fr 1fr;
-  grid-template-rows: auto auto;
   gap: 16px;
+  align-items: start;
 }
-.bento > .card-lg { grid-column: 1; grid-row: 1 / span 2; }
-.bento > .card-md { grid-column: 2; grid-row: 1; }
-.bento > .card-sm { grid-column: 2; grid-row: 2; }
 
 @media (max-width: 720px) {
   .bento { grid-template-columns: 1fr; }
-  .bento > .card-lg,
-  .bento > .card-md,
-  .bento > .card-sm { grid-column: 1; grid-row: auto; }
 }
 
 .card {

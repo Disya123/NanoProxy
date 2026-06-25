@@ -305,5 +305,169 @@
     host.appendChild(svg);
   }
 
-  window.npChart = { renderLine, renderStacked, setEmpty };
+  function renderDonut(host, opts) {
+    if (!host) return;
+    const data = opts.data || [];
+    if (data.length === 0) {
+      setEmpty(host, "No data");
+      return;
+    }
+    clear(host);
+
+    const W = 200;
+    const H = 200;
+    const cx = W / 2;
+    const cy = H / 2;
+    const r = 70;
+    const strokeWidth = 30;
+    
+    let total = data.reduce((sum, d) => sum + (d.value || 0), 0);
+    if (total === 0) total = 1;
+
+    const svg = el("svg", {
+      viewBox: `0 0 ${W} ${H}`, width: "100%", height: "100%", style: "max-height: 200px;", role: "img",
+    });
+
+    let cumulativePct = 0;
+    const colors = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#f43f5e", "#f97316"];
+    
+    data.forEach((d, i) => {
+      const pct = (d.value || 0) / total;
+      if (pct === 0) return;
+      
+      const dashArray = `${pct * 2 * Math.PI * r} ${2 * Math.PI * r}`;
+      const dashOffset = -cumulativePct * 2 * Math.PI * r;
+      
+      svg.appendChild(el("circle", {
+        cx: cx, cy: cy, r: r,
+        fill: "transparent",
+        stroke: d.color || colors[i % colors.length],
+        "stroke-width": strokeWidth,
+        "stroke-dasharray": dashArray,
+        "stroke-dashoffset": dashOffset,
+        "transform": `rotate(-90 ${cx} ${cy})`,
+        "stroke-linecap": pct > 0.05 ? "round" : "butt"
+      }, [
+        el("title", {}, [document.createTextNode(`${d.label}: ${fmtAxisValue(d.value)}`)])
+      ]));
+      
+      cumulativePct += pct;
+    });
+    
+    host.appendChild(svg);
+    
+    // Add legend
+    const legend = el("div", { style: "display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 16px; font-size: 12px; color: var(--text-2);" });
+    data.forEach((d, i) => {
+      const item = el("div", { style: "display: flex; align-items: center; gap: 4px;" });
+      item.appendChild(el("span", { style: `display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: ${d.color || colors[i % colors.length]};` }));
+      item.appendChild(el("span", {}, [document.createTextNode(d.label)]));
+      legend.appendChild(item);
+    });
+    host.appendChild(legend);
+  }
+
+  function renderHeatmap(host, opts) {
+    if (!host) return;
+    const data = opts.points || [];
+    if (data.length === 0) {
+      setEmpty(host, "No data");
+      return;
+    }
+    clear(host);
+
+    const cellSize = 12;
+    const cellGap = 3;
+    const maxWeeks = 14; 
+    
+    const W = (cellSize + cellGap) * maxWeeks + 30; // 30px for Y-axis labels
+    const H = (cellSize + cellGap) * 7 + 20; // 20px for X-axis labels
+    
+    const svg = el("svg", {
+      viewBox: `0 0 ${W} ${H}`, width: "100%", height: "100%", style: "max-height: 180px;", role: "img",
+    });
+
+    const yLabels = ["Mon", "Wed", "Fri"];
+    [0, 2, 4].forEach((y, i) => {
+      svg.appendChild(el("text", {
+        x: 0, y: (y + 1) * (cellSize + cellGap) + cellSize / 2 + 10,
+        "font-family": "var(--font-mono, monospace)", "font-size": 10, fill: "#71717a",
+      }, [document.createTextNode(yLabels[i])]));
+    });
+
+    const today = new Date();
+    // Start maxWeeks ago
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - maxWeeks * 7);
+    
+    let maxValue = 1;
+    const map = new Map();
+    data.forEach(d => {
+      map.set(d.day, d.value);
+      if (d.value > maxValue) maxValue = d.value;
+    });
+
+    const days = [];
+    for (let i = 0; i < maxWeeks * 7; i++) {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
+      days.push(d);
+    }
+    
+    // Group by week
+    const weeks = [];
+    let currentWeek = [];
+    days.forEach(d => {
+      currentWeek.push(d);
+      if (d.getDay() === 0 || currentWeek.length === 7) { // Sunday
+        weeks.push(currentWeek);
+        currentWeek = [];
+      }
+    });
+    if (currentWeek.length > 0) weeks.push(currentWeek);
+    
+    // Drop first week if partial to keep alignment, or just render it
+    if (weeks.length > maxWeeks) weeks.shift();
+
+    weeks.forEach((week, wIndex) => {
+      const x = 30 + wIndex * (cellSize + cellGap);
+      
+      // X label for month changes
+      if (week[0].getDate() <= 7) {
+         const month = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][week[0].getMonth()];
+         svg.appendChild(el("text", {
+           x: x, y: 10,
+           "font-family": "var(--font-mono, monospace)", "font-size": 10, fill: "#71717a",
+         }, [document.createTextNode(month)]));
+      }
+
+      week.forEach(d => {
+        let dayOfWeek = d.getDay() - 1; // 0=Mon, 6=Sun
+        if (dayOfWeek < 0) dayOfWeek = 6;
+        
+        const y = 20 + dayOfWeek * (cellSize + cellGap);
+        const dayStr = d.toISOString().split('T')[0];
+        const val = map.get(dayStr) || 0;
+        
+        // Compute color intensity (0.1 to 1.0)
+        let opacity = 0.05;
+        if (val > 0) {
+           opacity = 0.2 + (val / maxValue) * 0.8;
+        }
+        
+        svg.appendChild(el("rect", {
+          x, y, width: cellSize, height: cellSize, rx: 2,
+          fill: `rgba(16, 185, 129, ${opacity})`, // emerald-500 base
+          stroke: "rgba(255,255,255,0.05)",
+          "stroke-width": 1
+        }, [
+           el("title", {}, [document.createTextNode(`${dayStr}: ${val}`)])
+        ]));
+      });
+    });
+
+    host.appendChild(svg);
+  }
+
+  window.npChart = { renderLine, renderStacked, renderDonut, renderHeatmap, setEmpty };
 })();
