@@ -279,19 +279,34 @@
       // We rely on the caller providing series in stacking order (bottom → top).
       const bottom = cum.map((c, i) => c - (Number(data[i][sr.key]) || 0));
       const top = cum.slice();
-      const fwdPath = fwd.map((p, i) => `${i === 0 ? "M" : "L"} ${p[0].toFixed(2)} ${p[1].toFixed(2)}`).join(" ");
-      const revPath = bottom.map((_, i) => {
-        const y = yOf(bottom[n - 1 - i]);
-        return `L ${xOf(n - 1 - i).toFixed(2)} ${y.toFixed(2)}`;
-      }).join(" ");
-      svg.appendChild(el("path", {
-        d: fwdPath + " " + revPath + " Z",
-        fill, stroke: "none",
-      }));
+      if (n === 1) {
+        const topY = yOf(cum[0]);
+        const botY = yOf(bottom[0]);
+        svg.appendChild(el("rect", {
+          x: xOf(0) - 8, y: topY, width: 16, height: Math.max(1, botY - topY),
+          fill, stroke: "none",
+        }));
+      } else {
+        const fwdPath = fwd.map((p, i) => `${i === 0 ? "M" : "L"} ${p[0].toFixed(2)} ${p[1].toFixed(2)}`).join(" ");
+        const revPath = bottom.map((_, i) => {
+          const y = yOf(bottom[n - 1 - i]);
+          return `L ${xOf(n - 1 - i).toFixed(2)} ${y.toFixed(2)}`;
+        }).join(" ");
+        svg.appendChild(el("path", {
+          d: fwdPath + " " + revPath + " Z",
+          fill, stroke: "none",
+        }));
+      }
     }
 
     // Total line on top.
-    const linePts = totals.map((t, i) => [xOf(i), yOf(t)]);
+    if (n === 1) {
+      svg.appendChild(el("circle", {
+        cx: xOf(0), cy: yOf(totals[0]), r: 3,
+        fill: "#e4e4e7", stroke: "var(--bg, #0a0b0d)", "stroke-width": 1.5,
+      }));
+    } else {
+      const linePts = totals.map((t, i) => [xOf(i), yOf(t)]);
     svg.appendChild(el("path", {
       d: buildPath(linePts),
       fill: "none",
@@ -301,6 +316,7 @@
       "stroke-linecap": "round",
       "stroke-opacity": 0.85,
     }));
+    }
 
     host.appendChild(svg);
   }
@@ -408,7 +424,7 @@
     });
 
     const days = [];
-    for (let i = 0; i < maxWeeks * 7; i++) {
+    for (let i = 0; i <= maxWeeks * 7; i++) {
       const d = new Date(startDate);
       d.setDate(startDate.getDate() + i);
       days.push(d);

@@ -275,7 +275,7 @@ async function loadTopModels() {
     const host = document.getElementById("chart-donut-models");
     if (host && window.npChart) {
       window.npChart.renderDonut(host, {
-        data: rows.slice(0, 8).map(r => ({ label: r.model || "—", value: r.cost_usd }))
+        data: rows.slice(0, 8).map(r => ({ label: r.model || "—", value: r.requests }))
       });
     }
   } catch (e) { console.error("top models:", e); }
@@ -290,7 +290,7 @@ function renderRank(id, rows) {
   }
   el.innerHTML = rows.slice(0, 6).map((r) => `
     <li class="rank-row">
-      <span class="rank-name">${escapeHtml(r.name || r.model || "—")}</span>
+      <span class="rank-name">${escapeHtml(r.api_key_name || r.name || r.model || "—")}</span>
       <span class="rank-value">${fmtUSD(r.cost_usd)}</span>
     </li>
   `).join("");
