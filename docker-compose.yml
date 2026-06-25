@@ -1,11 +1,15 @@
-# docker-compose.yml — production-shaped local run.
+# docker-compose.yml — works on both bare `docker compose` and Portainer.
 #
-# Usage:
-#   cp config.example.yaml config.yaml        # then edit secrets / listeners
-#   export NANOGPT_API_KEY=sk-...             # passed through to the YAML via ${VAR}
-#   export ADMIN_TOKEN=$(openssl rand -hex 32)
-#   export ADMIN_COOKIE_SECRET=$(openssl rand -hex 32)
-#   docker compose up -d --build
+# Required env vars (set them in your shell, or in Portainer's stack
+# "Environment variables" section):
+#   NANOGPT_API_KEY      — upstream NanoGPT API key
+#   ADMIN_TOKEN          — token to log in to the admin dashboard
+#   ADMIN_COOKIE_SECRET  — 32+ random bytes (hex). Used to sign session cookies.
+#
+# The Go binary itself validates that NANOGPT_API_KEY and ADMIN_TOKEN are
+# non-empty on startup and exits with a clear error if they aren't, so the
+# container will fail loudly (and visibly in `docker compose ps`) instead of
+# booting with empty secrets.
 #
 # Override the image name with: `IMAGE=ghcr.io/you/nano-proxy:0.1.0 docker compose up -d`
 
@@ -17,25 +21,35 @@ x-logging: &logging
     max-size: "10m"
     max-file: "3"
 
+x-defaults: &defaults
+  restart: unless-stopped
+  init: true
+  stop_grace_period: 30s
+
 services:
   nano-proxy:
+    # `build:` is used by `docker compose build` and Portainer's
+    # Repository build method. To pull a prebuilt image instead,
+    # comment `build:` and uncomment `image:` below.
     build:
       context: .
       dockerfile: Dockerfile
+    # image: ${IMAGE:-nano-proxy:local}
     image: ${IMAGE:-nano-proxy:local}
     container_name: nano-proxy
-    restart: unless-stopped
-    init: true                    # proper signal handling / PID 1 reaper
-    stop_grace_period: 30s        # drain SSE streams cleanly on `docker stop`
+    <<: *defaults
     ports:
       - "8080:8080"               # public proxy (clients)
-      - "127.0.0.1:8081:8081"     # admin dashboard — keep loopback-only on the host
+      - "127.0.0.1:8081:8081"     # admin dashboard — loopback-only on the host
     environment:
-      # Secrets are injected from the host shell; the YAML references them via ${VAR}.
-      NANOGPT_API_KEY:    ${NANOGPT_API_KEY:?NANOGPT_API_KEY is required}
-      ADMIN_TOKEN:        ${ADMIN_TOKEN:?ADMIN_TOKEN is required}
-      ADMIN_COOKIE_SECRET:${ADMIN_COOKIE_SECRET:?ADMIN_COOKIE_SECRET is required}
-      # Optional Go runtime tuning for the 512 MB VPS target.
+      # Plain `${VAR}` references — supported by both docker compose v2 and
+      # Portainer. If a var is missing in the stack env section, it expands
+      # to an empty string; the Go binary will then refuse to start with a
+      # clear error message in the container logs.
+      NANOGPT_API_KEY:     ${NANOGPT_API_KEY}
+      ADMIN_TOKEN:         ${ADMIN_TOKEN}
+      ADMIN_COOKIE_SECRET: ${ADMIN_COOKIE_SECRET}
+      # Go runtime tuning for the 512 MB VPS target.
       GOMEMLIMIT: "400MiB"
       GOGC:       "50"
     volumes:
@@ -43,7 +57,7 @@ services:
       - nano-data:/home/nano/data
     # Hard memory cap matches the target VPS. RSS will typically settle ~30–60 MB.
     mem_limit: 512m
-    memswap_limit: 512m           # forbid swap — protect against OOM thrash
+    memswap_limit: 512m
     pids_limit: 256
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]

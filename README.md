@@ -121,6 +121,67 @@ docker run -d --name nano-proxy --restart=unless-stopped \
   ghcr.io/<user>/nano-proxy:latest
 ```
 
+### Portainer (Community Edition)
+
+The repo ships a single `docker-compose.yml` that works in both `docker compose`
+and Portainer — it does **not** use any bash-only syntax (no `${VAR:?required}`).
+
+> **Stack name** must be lower-case alphanumerics, `_` or `-`. Use `nanoproxy`
+> (not `NanoProxy`).
+
+#### Option A — Repository build (recommended)
+
+Portainer clones the repo, builds the Dockerfile, and starts the stack. Updates
+are a single "Pull and redeploy" click.
+
+1. **Stacks → Add stack** → name it `nanoproxy`.
+2. Build method: **Repository**.
+   - Repository URL: `https://github.com/Disya123/NanoProxy`
+   - Compose path: `docker-compose.yml`
+   - Repository reference: `refs/heads/main`
+   - Authentication: none (the repo is public).
+3. **Advanced → Webhooks** (optional): enable and copy the URL into a GitHub
+   webhook so every `git push` triggers a rebuild automatically.
+4. Click **Environment variables** and add:
+   - `NANOGPT_API_KEY`     — `sk-…`
+   - `ADMIN_TOKEN`         — `openssl rand -hex 32`
+   - `ADMIN_COOKIE_SECRET` — `openssl rand -hex 32`
+5. **Deploy the stack**.
+
+Portainer will run `docker compose up -d --build`, build the image from the
+Dockerfile, and start the container. Watch the logs from the stack view:
+`Stack → nanoproxy → nano-proxy → Logs`.
+
+#### Option B — Web editor (paste the compose)
+
+Use this if you can't reach GitHub from your Portainer host, or you prefer
+keeping the stack self-contained.
+
+1. **Stacks → Add stack** → name it `nanoproxy`.
+2. Build method: **Web editor**.
+3. Paste the contents of `docker-compose.yml`.
+4. Below the editor, fill in the **Environment variables** section with
+   `NANOGPT_API_KEY`, `ADMIN_TOKEN`, `ADMIN_COOKIE_SECRET`.
+5. **Deploy the stack**.
+
+#### Updating
+
+- **Repository method**: edit the repo, `git push`. In Portainer: tick
+  **Re-pull image and redeploy** in the stack view, or use the webhook.
+- **Web editor method**: open the stack, click **Editor**, paste the new
+  compose, **Update the stack**.
+
+#### Accessing the admin UI
+
+Admin listens on `127.0.0.1:8081` of the Docker host. To reach it from your
+laptop safely:
+
+```bash
+ssh -L 8081:127.0.0.1:8081 root@<vps-host>
+```
+
+Then open <http://127.0.0.1:8081/login> and paste `ADMIN_TOKEN`.
+
 ## Deployment on a 512 MB VPS
 
 ```bash
