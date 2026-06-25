@@ -407,6 +407,35 @@ async function initKeys() {
   document.querySelector('[data-action="close"]').addEventListener("click", () => {
     document.getElementById("dlg-new-key").close();
   });
+  document.querySelector('[data-action="cancel-limits"]')?.addEventListener("click", () => {
+    document.getElementById("dlg-edit-limits").close();
+  });
+  
+  document.getElementById("form-edit-limits")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const id = fd.get("id");
+    const body = {
+      limit_interval: fd.get("limit_interval"),
+      clear_budget: true,
+      clear_input_tokens: true,
+      clear_output_tokens: true,
+      clear_total_tokens: true,
+    };
+    if (fd.get("budget")) { body.budget_usd = parseFloat(fd.get("budget")); body.clear_budget = false; }
+    if (fd.get("limit_input_tokens")) { body.limit_input_tokens = parseInt(fd.get("limit_input_tokens")); body.clear_input_tokens = false; }
+    if (fd.get("limit_output_tokens")) { body.limit_output_tokens = parseInt(fd.get("limit_output_tokens")); body.clear_output_tokens = false; }
+    if (fd.get("limit_total_tokens")) { body.limit_total_tokens = parseInt(fd.get("limit_total_tokens")); body.clear_total_tokens = false; }
+    
+    try {
+      await api.patch(`/admin/api/keys/${id}`, body);
+      document.getElementById("dlg-edit-limits").close();
+      loadKeys();
+    } catch (err) {
+      alert("Failed to update limits: " + err.message);
+    }
+  });
+
   document.getElementById("form-new-key").addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -437,12 +466,17 @@ async function loadKeys() {
     tb.innerHTML = keys.map((k) => `
       <tr>
         <td>${escapeHtml(k.name)}</td>
-        <td class="mono">${escapeHtml(k.key_prefix)}…</td>
+        <td class="mono">
+           ${escapeHtml(k.key_prefix)}…
+           ${k.raw_key ? `<button class="btn btn-ghost" style="padding: 2px 4px; font-size: 12px; margin-left: 8px;" data-action="copy" data-key="${escapeAttr(k.raw_key)}">Copy</button>` : ""}
+        </td>
         <td><span class="badge ${k.enabled ? "badge-ok" : "badge-bad"}">${k.enabled ? "enabled" : "disabled"}</span></td>
         <td class="col-time mono">${fmtTime(k.created_at_ms ?? Date.parse(k.created_at))}</td>
+        <td>${k.limit_interval || 'all_time'}</td>
         <td class="col-num mono">${k.budget_usd ? fmtUSD(k.budget_usd) : "—"}</td>
         <td class="col-num mono">${fmtUSD(k.spend_30d ?? 0)}</td>
         <td>
+          <button class="btn btn-ghost" data-action="limits" data-key='${escapeAttr(JSON.stringify(k))}'>Limits</button>
           <button class="btn btn-ghost" data-action="toggle" data-id="${k.id}" data-enabled="${!k.enabled}">
             ${k.enabled ? "Disable" : "Enable"}
           </button>
@@ -454,6 +488,24 @@ async function loadKeys() {
       b.addEventListener("click", () => toggleKey(b.dataset.id, b.dataset.enabled === "true")));
     tb.querySelectorAll('[data-action="delete"]').forEach((b) =>
       b.addEventListener("click", () => deleteKey(b.dataset.id)));
+    tb.querySelectorAll('[data-action="copy"]').forEach((b) =>
+      b.addEventListener("click", () => {
+        navigator.clipboard.writeText(b.dataset.key);
+        const orig = b.textContent;
+        b.textContent = "Copied!";
+        setTimeout(() => b.textContent = orig, 2000);
+      }));
+    tb.querySelectorAll('[data-action="limits"]').forEach((b) =>
+      b.addEventListener("click", () => {
+        const k = JSON.parse(b.dataset.key);
+        document.getElementById("edit-limits-id").value = k.id;
+        document.getElementById("edit-limit-interval").value = k.limit_interval || "all_time";
+        document.getElementById("edit-budget").value = k.budget_usd || "";
+        document.getElementById("edit-limit-in").value = k.limit_input_tokens || "";
+        document.getElementById("edit-limit-out").value = k.limit_output_tokens || "";
+        document.getElementById("edit-limit-tot").value = k.limit_total_tokens || "";
+        document.getElementById("dlg-edit-limits").showModal();
+      }));
   } catch (e) { console.error("keys:", e); }
 }
 
