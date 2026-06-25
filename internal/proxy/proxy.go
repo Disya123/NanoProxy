@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/local/nano-proxy/internal/auth"
@@ -26,6 +27,11 @@ type Proxy struct {
 
 	// upstream is reused across requests; created lazily by getUpstream.
 	upstream *http.Client
+
+	// Models cache
+	modelsMu       sync.RWMutex
+	modelsCache    []byte
+	modelsCacheExp time.Time
 }
 
 func New(cfg config.Config, st *store.Store, keys *KeyProvider) *Proxy {
@@ -53,7 +59,7 @@ func (p *Proxy) Routes(secret []byte) http.Handler {
 
 	// Pass-through for other NanoGPT v1 endpoints (models, etc.). Auth still applied.
 	mux.Handle("GET /v1/", authMW(http.HandlerFunc(p.handlePassthrough)))
-	mux.Handle("GET /v1/models", authMW(http.HandlerFunc(p.handlePassthrough)))
+	mux.Handle("GET /v1/models", authMW(http.HandlerFunc(p.handleModels)))
 
 	return mux
 }
@@ -203,6 +209,84 @@ func (p *Proxy) handlePassthrough(w http.ResponseWriter, r *http.Request) {
 	copyHeaders(w.Header(), resp.Header, "Content-Length", "Content-Encoding")
 	w.WriteHeader(resp.StatusCode)
 	_, _ = io.Copy(w, resp.Body)
+}
+
+// handleModels intercepts requests to /v1/models and caches the response.
+func (p *Proxy) handleModels(w http.ResponseWriter, r *http.Request) {
+	p.modelsMu.RLock()
+	cache := p.modelsCache
+	exp := p.modelsCacheExp
+	p.modelsMu.RUnlock()
+
+	// If cache is valid, return it instantly
+	if cache != nil && time.Now().Before(exp) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(cache)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), p.Cfg.Upstream.RequestTimeout)
+	defer cancel()
+
+	url := p.upstreamURL("/models")
+	upstreamReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		writeProxyError(w, http.StatusInternalServerError, "request_build_error", err.Error())
+		return
+	}
+	upstreamKey := p.Keys.Get()
+	if upstreamKey == "" {
+		writeProxyError(w, http.StatusBadGateway, "upstream_key_missing", "upstream NanoGPT API key is not configured")
+		return
+	}
+	upstreamReq.Header.Set("Authorization", "Bearer "+upstreamKey)
+	upstreamReq.Header.Set("Accept", "application/json")
+
+	resp, err := p.getUpstream().Do(upstreamReq)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		// Serve stale cache as a fallback if upstream fails
+		if cache != nil {
+			log.Printf("[Proxy] upstream models failed (%v, status=%d), serving stale cache", err, func() int { if resp != nil { return resp.StatusCode }; return 0 }())
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(cache)
+			return
+		}
+		if err != nil {
+			writeProxyError(w, http.StatusBadGateway, "upstream_error", err.Error())
+			return
+		}
+		defer resp.Body.Close()
+		copyHeaders(w.Header(), resp.Header, "Content-Length", "Content-Encoding")
+		w.WriteHeader(resp.StatusCode)
+		_, _ = io.Copy(w, resp.Body)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		if cache != nil {
+			log.Printf("[Proxy] upstream models read failed (%v), serving stale cache", err)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(cache)
+			return
+		}
+		writeProxyError(w, http.StatusBadGateway, "upstream_error", err.Error())
+		return
+	}
+
+	// Update cache
+	p.modelsMu.Lock()
+	p.modelsCache = body
+	p.modelsCacheExp = time.Now().Add(1 * time.Hour)
+	p.modelsMu.Unlock()
+
+	copyHeaders(w.Header(), resp.Header, "Content-Length", "Content-Encoding")
+	w.WriteHeader(resp.StatusCode)
+	_, _ = w.Write(body)
 }
 
 // upstreamURL builds the full upstream URL for a path under /api/v1.
