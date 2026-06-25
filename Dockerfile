@@ -11,13 +11,13 @@ FROM golang:1.22-alpine AS builder
 # Toolchain hints for reproducible builds.
 ENV CGO_ENABLED=0 \
     GOOS=linux \
-    GOARCH=amd64 \
-    GOFLAGS=-mod=readonly
+    GOARCH=amd64
 
 WORKDIR /src
 
-# Cache module downloads.
-COPY go.mod go.sum* ./
+# Cache module downloads. Copying go.mod alone lets `go mod download` create
+# go.sum on the first run (it's idempotent for unchanged go.mod).
+COPY go.mod ./
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     go mod download
@@ -26,6 +26,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 COPY . .
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
+    go mod download && \
     go build -trimpath -ldflags="-s -w" \
         -o /out/nano-proxy \
         ./cmd/nano-proxy
