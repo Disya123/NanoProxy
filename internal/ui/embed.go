@@ -27,7 +27,7 @@ func StaticHandler() http.Handler {
 	if err != nil {
 		panic(err)
 	}
-	return http.StripPrefix("/static/", http.FileServer(http.FS(sub)))
+	return http.StripPrefix("/admin/static/", http.FileServer(http.FS(sub)))
 }
 
 // Templates returns the embedded *template.Template root (templates/*.html).
