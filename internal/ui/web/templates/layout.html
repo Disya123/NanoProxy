@@ -1,0 +1,46 @@
+{{define "layout.html"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>nano-proxy · {{.Active}}</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="shell">
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">nano-proxy</span>
+      </div>
+      <nav class="nav" aria-label="Primary">
+        <a class="nav-link {{if eq .Active "dashboard"}}is-active{{end}}" href="/admin/">
+          <span class="nav-glyph">D</span>
+          <span class="nav-label">Overview</span>
+        </a>
+        <a class="nav-link {{if eq .Active "requests"}}is-active{{end}}" href="/admin/requests">
+          <span class="nav-glyph">R</span>
+          <span class="nav-label">Requests</span>
+        </a>
+        <a class="nav-link {{if eq .Active "keys"}}is-active{{end}}" href="/admin/keys">
+          <span class="nav-glyph">K</span>
+          <span class="nav-label">Keys</span>
+        </a>
+      </nav>
+      <div class="sidebar-foot">
+        <span class="meta-label">uptime</span>
+        <span class="meta-value mono" id="uptime-line">—</span>
+        <form action="/admin/api/logout" method="post" class="logout-form">
+          <button type="submit" class="btn btn-ghost" data-action="logout">Sign out</button>
+        </form>
+      </div>
+    </aside>
+    <main class="main">
+      {{template "content" .}}
+    </main>
+  </div>
+  <script src="/static/chart.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>{{end}}

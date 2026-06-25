@@ -1,0 +1,102 @@
+{{define "content"}}
+<section class="hero">
+  <p class="eyebrow">overview</p>
+  <div class="hero-head">
+    <h1 class="display">Spend & throughput at a glance.</h1>
+    <div class="range-picker" role="tablist" aria-label="Time range">
+      <button class="range-btn is-active" data-range="24h">24h</button>
+      <button class="range-btn" data-range="7d">7d</button>
+      <button class="range-btn" data-range="30d">30d</button>
+      <button class="range-btn" data-range="custom">Custom</button>
+    </div>
+  </div>
+</section>
+
+<section class="kpi-grid" id="kpi-grid">
+  <article class="kpi kpi-lg" data-kpi="cost">
+    <p class="kpi-eyebrow">Total cost</p>
+    <p class="kpi-value mono"><span class="skeleton" style="width:7ch;height:1em;display:inline-block"></span></p>
+    <p class="kpi-foot mono" data-kpi-foot>—</p>
+  </article>
+  <article class="kpi" data-kpi="requests">
+    <p class="kpi-eyebrow">Requests</p>
+    <p class="kpi-value mono"><span class="skeleton" style="width:6ch;height:1em;display:inline-block"></span></p>
+    <p class="kpi-foot mono" data-kpi-foot>—</p>
+  </article>
+  <article class="kpi" data-kpi="tokens">
+    <p class="kpi-eyebrow">Tokens in / out</p>
+    <p class="kpi-value mono"><span class="skeleton" style="width:8ch;height:1em;display:inline-block"></span></p>
+    <p class="kpi-foot mono" data-kpi-foot>—</p>
+  </article>
+  <article class="kpi" data-kpi="cache">
+    <p class="kpi-eyebrow">Cache hit rate</p>
+    <p class="kpi-value mono"><span class="skeleton" style="width:5ch;height:1em;display:inline-block"></span></p>
+    <p class="kpi-foot mono" data-kpi-foot>—</p>
+  </article>
+</section>
+
+<section class="bento bento-charts">
+  <article class="card card-lg chart-card">
+    <header class="card-head">
+      <p class="card-eyebrow">series</p>
+      <h2 class="card-title">Cost over time</h2>
+      <div class="card-tabs">
+        <button class="tab is-active" data-series="cost">USD</button>
+        <button class="tab" data-series="requests">Requests</button>
+        <button class="tab" data-series="tokens">Tokens</button>
+      </div>
+    </header>
+    <div class="chart-host" id="chart-main">
+      <p class="empty">Loading…</p>
+    </div>
+  </article>
+  <article class="card card-md">
+    <header class="card-head">
+      <p class="card-eyebrow">rank</p>
+      <h2 class="card-title">Top keys by spend</h2>
+    </header>
+    <ol class="rank" id="rank-keys">
+      <li class="rank-row skeleton" style="height:18px"></li>
+      <li class="rank-row skeleton" style="height:18px"></li>
+      <li class="rank-row skeleton" style="height:18px"></li>
+    </ol>
+  </article>
+  <article class="card card-sm">
+    <header class="card-head">
+      <p class="card-eyebrow">rank</p>
+      <h2 class="card-title">Top models</h2>
+    </header>
+    <ol class="rank" id="rank-models">
+      <li class="rank-row skeleton" style="height:18px"></li>
+      <li class="rank-row skeleton" style="height:18px"></li>
+      <li class="rank-row skeleton" style="height:18px"></li>
+    </ol>
+  </article>
+</section>
+
+<section class="card recent">
+  <header class="card-head">
+    <p class="card-eyebrow">live</p>
+    <h2 class="card-title">Latest requests</h2>
+    <a class="card-link" href="/admin/requests">View all →</a>
+  </header>
+  <div class="table-host">
+    <table class="table">
+      <thead>
+        <tr>
+          <th class="col-time">Time</th>
+          <th>Key</th>
+          <th>Model</th>
+          <th class="col-num">Tokens</th>
+          <th class="col-num">Cache</th>
+          <th class="col-num">Cost</th>
+          <th class="col-status">Status</th>
+        </tr>
+      </thead>
+      <tbody id="recent-rows">
+        <tr><td colspan="7" class="empty">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+{{end}}

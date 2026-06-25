@@ -1,0 +1,56 @@
+{{define "content"}}
+<section class="hero">
+  <p class="eyebrow">api keys</p>
+  <div class="hero-head">
+    <h1 class="display">Client access.</h1>
+    <button class="btn btn-primary" data-action="new-key">New key</button>
+  </div>
+</section>
+
+<section class="card">
+  <div class="table-host">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Prefix</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th class="col-num">Budget</th>
+          <th class="col-num">30d spend</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="keys-rows">
+        <tr><td colspan="7" class="empty">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<dialog id="dlg-new-key" class="dialog">
+  <form id="form-new-key" class="dialog-body" autocomplete="off">
+    <h2 class="dialog-title">Create client key</h2>
+    <label class="field">
+      <span class="field-label">Name</span>
+      <input class="input" name="name" required placeholder="alice-app">
+    </label>
+    <label class="field">
+      <span class="field-label">Budget (USD, optional)</span>
+      <input class="input mono" name="budget" type="number" min="0" step="0.01" placeholder="50">
+    </label>
+    <p class="dialog-foot">
+      <button type="button" class="btn btn-ghost" data-action="cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary">Create</button>
+    </p>
+  </form>
+  <div id="dlg-new-key-result" class="dialog-result" hidden>
+    <p class="dialog-title">Key created</p>
+    <p class="dialog-lead">Copy this now — it will not be shown again.</p>
+    <pre class="key-reveal mono" id="dlg-key-value"></pre>
+    <p class="dialog-foot">
+      <button type="button" class="btn btn-primary" data-action="close">I've saved it</button>
+    </p>
+  </div>
+</dialog>
+{{end}}

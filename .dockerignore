@@ -1,0 +1,43 @@
+# Build context hygiene — keep the image small and avoid leaking local state.
+
+# VCS / meta
+.git
+.gitignore
+.gitattributes
+.github
+
+# Local runtime state (SQLite + WAL)
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docs / planning — not needed in the image
+PLAN.md
+README.md
+LICENSE
+docs/
+
+# Local secrets and overrides
+.env
+.env.*
+config.yaml
+config.local.yaml
+
+# CI / dev helpers
+scripts/
+Makefile
+*.log
+
+# Docker meta — never include our own build artifacts
+Dockerfile
+.dockerignore
+docker-compose*.yml

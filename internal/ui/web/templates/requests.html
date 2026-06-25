@@ -1,0 +1,51 @@
+{{define "content"}}
+<section class="hero">
+  <p class="eyebrow">requests</p>
+  <div class="hero-head">
+    <h1 class="display">Every call, every token.</h1>
+    <div class="filter-bar">
+      <select id="f-key" class="select"><option value="">All keys</option></select>
+      <select id="f-model" class="select"><option value="">All models</option></select>
+      <select id="f-status" class="select">
+        <option value="">Any status</option>
+        <option value="err">Errors only</option>
+        <option value="ok">OK only</option>
+        <option value="tool">Tool errors</option>
+      </select>
+      <input id="f-from" type="date" class="input">
+      <input id="f-to" type="date" class="input">
+      <button class="btn btn-ghost" data-action="reset">Reset</button>
+      <button class="btn btn-ghost" data-action="export">Export CSV</button>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <div class="table-host">
+    <table class="table">
+      <thead>
+        <tr>
+          <th class="col-time">Time</th>
+          <th>Key</th>
+          <th>Model</th>
+          <th class="col-num">Prompt</th>
+          <th class="col-num">Completion</th>
+          <th class="col-num">Cache</th>
+          <th class="col-num">Cost</th>
+          <th>Tools</th>
+          <th class="col-status">Status</th>
+          <th class="col-num">Latency</th>
+        </tr>
+      </thead>
+      <tbody id="requests-rows">
+        <tr><td colspan="10" class="empty">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <footer class="pager">
+    <button class="btn btn-ghost" data-action="prev">←</button>
+    <span class="pager-info mono" id="pager-info">—</span>
+    <button class="btn btn-ghost" data-action="next">→</button>
+  </footer>
+</section>
+{{end}}

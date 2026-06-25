@@ -1,0 +1,58 @@
+# docker-compose.yml — production-shaped local run.
+#
+# Usage:
+#   cp config.example.yaml config.yaml        # then edit secrets / listeners
+#   export NANOGPT_API_KEY=sk-...             # passed through to the YAML via ${VAR}
+#   export ADMIN_TOKEN=$(openssl rand -hex 32)
+#   export ADMIN_COOKIE_SECRET=$(openssl rand -hex 32)
+#   docker compose up -d --build
+#
+# Override the image name with: `IMAGE=ghcr.io/you/nano-proxy:0.1.0 docker compose up -d`
+
+name: nano-proxy
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  nano-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${IMAGE:-nano-proxy:local}
+    container_name: nano-proxy
+    restart: unless-stopped
+    init: true                    # proper signal handling / PID 1 reaper
+    stop_grace_period: 30s        # drain SSE streams cleanly on `docker stop`
+    ports:
+      - "8080:8080"               # public proxy (clients)
+      - "127.0.0.1:8081:8081"     # admin dashboard — keep loopback-only on the host
+    environment:
+      # Secrets are injected from the host shell; the YAML references them via ${VAR}.
+      NANOGPT_API_KEY:    ${NANOGPT_API_KEY:?NANOGPT_API_KEY is required}
+      ADMIN_TOKEN:        ${ADMIN_TOKEN:?ADMIN_TOKEN is required}
+      ADMIN_COOKIE_SECRET:${ADMIN_COOKIE_SECRET:?ADMIN_COOKIE_SECRET is required}
+      # Optional Go runtime tuning for the 512 MB VPS target.
+      GOMEMLIMIT: "400MiB"
+      GOGC:       "50"
+    volumes:
+      - ./config.yaml:/etc/nano-proxy/config.yaml:ro
+      - nano-data:/home/nano/data
+    # Hard memory cap matches the target VPS. RSS will typically settle ~30–60 MB.
+    mem_limit: 512m
+    memswap_limit: 512m           # forbid swap — protect against OOM thrash
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging: *logging
+
+volumes:
+  nano-data:
+    name: nano-proxy-data

@@ -1,0 +1,27 @@
+# Build artifacts
+/nano-proxy
+/nano-proxy.exe
+/dist/
+/vendor/
+
+# Local config and secrets — never commit
+/config.yaml
+/config.local.yaml
+/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.env
+.env.*
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

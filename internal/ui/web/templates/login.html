@@ -1,0 +1,24 @@
+{{define "content"}}
+<section class="auth">
+  <div class="auth-card">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">nano-proxy</span>
+    </div>
+    <p class="eyebrow">admin</p>
+    <h1 class="auth-title">Sign in</h1>
+    <p class="auth-lead">
+      Use the <code>ADMIN_TOKEN</code> you set when starting the process.
+    </p>
+    <form id="login-form" class="auth-form" autocomplete="off">
+      <label class="field">
+        <span class="field-label">Token</span>
+        <input class="input mono" type="password" name="token" required autofocus
+               placeholder="paste token">
+      </label>
+      <button type="submit" class="btn btn-primary">Sign in</button>
+      <p class="auth-error" id="login-error" hidden></p>
+    </form>
+  </div>
+</section>
+{{end}}

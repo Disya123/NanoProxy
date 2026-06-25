@@ -1,0 +1,30 @@
+# nano-proxy configuration
+# Copy to config.yaml and fill secrets via env vars (${VAR}).
+
+server:
+  # Public proxy listener (clients connect here)
+  listen: "0.0.0.0:8080"
+  # Admin dashboard listener (keep on localhost or behind firewall)
+  admin_listen: "127.0.0.1:8081"
+  read_timeout: "60s"
+  write_timeout: "0s"   # 0 = no timeout (required for long SSE streams)
+  idle_timeout: "120s"
+
+upstream:
+  base_url: "https://nano-gpt.com"
+  api_key: "${NANOGPT_API_KEY}"
+  path_prefix: "/api/v1"
+  request_timeout: "300s"
+
+storage:
+  db_path: "./data/nano-proxy.db"
+  retention_days: 90
+
+admin:
+  token: "${ADMIN_TOKEN}"
+  cookie_secret: "${ADMIN_COOKIE_SECRET}"
+  cookie_ttl: "12h"
+
+limits:
+  max_body_bytes: 2097152        # 2 MB request body cap (protect upstream)
+  max_concurrent: 64             # semaphore for upstream concurrency

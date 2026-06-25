@@ -1,0 +1,27 @@
+[Unit]
+Description=nano-proxy — NanoGPT reverse proxy with telemetry
+Documentation=https://github.com/local/nano-proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nano-proxy
+Group=nano-proxy
+WorkingDirectory=/opt/nano-proxy
+EnvironmentFile=/etc/nano-proxy/env
+Environment=GOMEMLIMIT=400MiB
+Environment=GOGC=50
+Environment=GODEBUG=madvdontneed=1
+ExecStart=/opt/nano-proxy/nano-proxy -config /etc/nano-proxy/config.yaml
+Restart=on-failure
+RestartSec=3s
+LimitNOFILE=65535
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/nano-proxy
+
+[Install]
+WantedBy=multi-user.target
