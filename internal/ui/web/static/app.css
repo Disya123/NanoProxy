@@ -168,7 +168,6 @@ body::before {
 
 .hero {
   margin-bottom: 56px;
-  max-width: 760px;
   animation: fade-up var(--dur-slow) var(--ease-spring) 80ms both;
 }
 .eyebrow {
