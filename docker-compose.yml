@@ -27,7 +27,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ${IMAGE:-nano-proxy:local}
+    image: ${IMAGE:-nano-proxy:v2}
     container_name: nano-proxy
     restart: unless-stopped
     init: true
