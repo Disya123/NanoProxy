@@ -73,6 +73,19 @@ func (p *Proxy) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check Limits
+	limits, err := p.St.CheckKeyLimits(r.Context(), key)
+	if err != nil {
+		log.Printf("[Proxy] limit check failed for key %d: %v", key.ID, err)
+		// fail open or closed? Let's fail open but log it, or fail closed.
+		writeProxyError(w, http.StatusInternalServerError, "internal_error", "failed to check limits")
+		return
+	}
+	if limits.Exceeded {
+		writeProxyError(w, http.StatusTooManyRequests, "limit_exceeded", "quota exceeded: "+limits.Reason)
+		return
+	}
+
 	// Cap client body size defensively (config-driven).
 	r.Body = http.MaxBytesReader(w, r.Body, p.Cfg.Limits.MaxBodyBytes)
 	body, err := io.ReadAll(r.Body)

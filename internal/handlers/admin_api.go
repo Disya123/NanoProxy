@@ -89,8 +89,17 @@ func (h *AdminAPI) ListKeys(w http.ResponseWriter, r *http.Request) {
 type patchKeyReq struct {
 	Name      *string  `json:"name,omitempty"`
 	Enabled   *bool    `json:"enabled,omitempty"`
-	BudgetUSD *float64 `json:"budget_usd,omitempty"`
-	ClearBudget bool   `json:"clear_budget,omitempty"`
+	
+	// Limits
+	LimitInterval      *string  `json:"limit_interval,omitempty"`
+	BudgetUSD          *float64 `json:"budget_usd,omitempty"`
+	ClearBudget        bool     `json:"clear_budget,omitempty"`
+	LimitInputTokens   *int64   `json:"limit_input_tokens,omitempty"`
+	ClearInputTokens   bool     `json:"clear_input_tokens,omitempty"`
+	LimitOutputTokens  *int64   `json:"limit_output_tokens,omitempty"`
+	ClearOutputTokens  bool     `json:"clear_output_tokens,omitempty"`
+	LimitTotalTokens   *int64   `json:"limit_total_tokens,omitempty"`
+	ClearTotalTokens   bool     `json:"clear_total_tokens,omitempty"`
 }
 
 func (h *AdminAPI) PatchKey(w http.ResponseWriter, r *http.Request) {
@@ -116,15 +125,54 @@ func (h *AdminAPI) PatchKey(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if req.ClearBudget {
-		if err := h.St.SetKeyBudget(r.Context(), id, nil); err != nil {
-			writeAPIError(w, http.StatusInternalServerError, "budget_failed", err.Error())
+
+	// Update limits if any limit-related field is provided
+	if req.LimitInterval != nil || req.BudgetUSD != nil || req.ClearBudget || 
+	   req.LimitInputTokens != nil || req.ClearInputTokens ||
+	   req.LimitOutputTokens != nil || req.ClearOutputTokens ||
+	   req.LimitTotalTokens != nil || req.ClearTotalTokens {
+		
+		key, err := h.St.GetKeyByID(r.Context(), id)
+		if err != nil {
+			writeAPIError(w, http.StatusInternalServerError, "get_key_failed", err.Error())
 			return
 		}
-	} else if req.BudgetUSD != nil {
-		v := *req.BudgetUSD
-		if err := h.St.SetKeyBudget(r.Context(), id, &v); err != nil {
-			writeAPIError(w, http.StatusInternalServerError, "budget_failed", err.Error())
+
+		interval := key.LimitInterval
+		if req.LimitInterval != nil {
+			interval = *req.LimitInterval
+		}
+
+		budget := key.BudgetUSD
+		if req.ClearBudget {
+			budget = nil
+		} else if req.BudgetUSD != nil {
+			budget = req.BudgetUSD
+		}
+
+		in := key.LimitInputTokens
+		if req.ClearInputTokens {
+			in = nil
+		} else if req.LimitInputTokens != nil {
+			in = req.LimitInputTokens
+		}
+
+		out := key.LimitOutputTokens
+		if req.ClearOutputTokens {
+			out = nil
+		} else if req.LimitOutputTokens != nil {
+			out = req.LimitOutputTokens
+		}
+
+		tot := key.LimitTotalTokens
+		if req.ClearTotalTokens {
+			tot = nil
+		} else if req.LimitTotalTokens != nil {
+			tot = req.LimitTotalTokens
+		}
+
+		if err := h.St.UpdateKeyLimits(r.Context(), id, interval, budget, in, out, tot); err != nil {
+			writeAPIError(w, http.StatusInternalServerError, "limits_failed", err.Error())
 			return
 		}
 	}

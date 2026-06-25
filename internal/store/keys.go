@@ -25,10 +25,14 @@ type APIKey struct {
 	Name       string    `json:"name"`
 	KeyPrefix  string    `json:"key_prefix"`
 	KeyHash    string    `json:"-"`
-	Enabled    bool      `json:"enabled"`
-	BudgetUSD  *float64  `json:"budget_usd,omitempty"`
-	CreatedAt  time.Time `json:"created_at"`
-	RawKey     string    `json:"raw_key,omitempty"` // only on create response
+	Enabled            bool      `json:"enabled"`
+	BudgetUSD          *float64  `json:"budget_usd,omitempty"`
+	CreatedAt          time.Time `json:"created_at"`
+	RawKey             string    `json:"raw_key,omitempty"` // populated if stored in DB
+	LimitInterval      string    `json:"limit_interval"`
+	LimitInputTokens   *int64    `json:"limit_input_tokens,omitempty"`
+	LimitOutputTokens  *int64    `json:"limit_output_tokens,omitempty"`
+	LimitTotalTokens   *int64    `json:"limit_total_tokens,omitempty"`
 }
 
 // CreateKey generates a fresh client key (sknp_<40 hex>), stores only its
@@ -47,9 +51,9 @@ func (s *Store) CreateKey(ctx context.Context, secret []byte, name string, budge
 
 	now := time.Now().UnixMilli()
 	res, err := s.DB.ExecContext(ctx,
-		`INSERT INTO api_keys (name, key_prefix, key_hash, enabled, budget_usd, created_at)
-		 VALUES (?, ?, ?, 1, ?, ?)`,
-		name, prefix, hash, budgetUSD, now,
+		`INSERT INTO api_keys (name, key_prefix, key_hash, enabled, budget_usd, created_at, raw_key, limit_interval)
+		 VALUES (?, ?, ?, 1, ?, ?, ?, ?)`,
+		name, prefix, hash, budgetUSD, now, raw, "all_time",
 	)
 	if err != nil {
 		return APIKey{}, fmt.Errorf("insert: %w", err)
@@ -64,6 +68,7 @@ func (s *Store) CreateKey(ctx context.Context, secret []byte, name string, budge
 		BudgetUSD: budgetUSD,
 		CreatedAt: time.UnixMilli(now),
 		RawKey:    raw,
+		LimitInterval: "all_time",
 	}, nil
 }
 
@@ -75,13 +80,19 @@ func (s *Store) LookupKeyByHash(ctx context.Context, secret []byte, raw string) 
 	}
 	hash := hashKey(secret, raw)
 	row := s.DB.QueryRowContext(ctx,
-		`SELECT id, name, key_prefix, key_hash, enabled, budget_usd, created_at
+		`SELECT id, name, key_prefix, key_hash, enabled, budget_usd, created_at,
+		        raw_key, limit_interval, limit_input_tokens, limit_output_tokens, limit_total_tokens
 		 FROM api_keys WHERE key_hash = ?`, hash)
 	var k APIKey
 	var enabled int
 	var budget sql.NullFloat64
 	var createdMs int64
-	if err := row.Scan(&k.ID, &k.Name, &k.KeyPrefix, &k.KeyHash, &enabled, &budget, &createdMs); err != nil {
+	var rawKey sql.NullString
+	var limitInt sql.NullString
+	var limIn, limOut, limTot sql.NullInt64
+
+	if err := row.Scan(&k.ID, &k.Name, &k.KeyPrefix, &k.KeyHash, &enabled, &budget, &createdMs,
+		&rawKey, &limitInt, &limIn, &limOut, &limTot); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return APIKey{}, ErrKeyNotFound
 		}
@@ -93,6 +104,12 @@ func (s *Store) LookupKeyByHash(ctx context.Context, secret []byte, raw string) 
 		k.BudgetUSD = &v
 	}
 	k.CreatedAt = time.UnixMilli(createdMs)
+	if rawKey.Valid { k.RawKey = rawKey.String }
+	if limitInt.Valid { k.LimitInterval = limitInt.String } else { k.LimitInterval = "all_time" }
+	if limIn.Valid { v := limIn.Int64; k.LimitInputTokens = &v }
+	if limOut.Valid { v := limOut.Int64; k.LimitOutputTokens = &v }
+	if limTot.Valid { v := limTot.Int64; k.LimitTotalTokens = &v }
+
 	if !k.Enabled {
 		return k, ErrKeyDisabled
 	}
@@ -102,7 +119,8 @@ func (s *Store) LookupKeyByHash(ctx context.Context, secret []byte, raw string) 
 // ListKeys returns all keys (enabled and disabled), newest first.
 func (s *Store) ListKeys(ctx context.Context) ([]APIKey, error) {
 	rows, err := s.DB.QueryContext(ctx,
-		`SELECT id, name, key_prefix, key_hash, enabled, budget_usd, created_at
+		`SELECT id, name, key_prefix, key_hash, enabled, budget_usd, created_at,
+		        raw_key, limit_interval, limit_input_tokens, limit_output_tokens, limit_total_tokens
 		 FROM api_keys ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
@@ -115,7 +133,12 @@ func (s *Store) ListKeys(ctx context.Context) ([]APIKey, error) {
 		var enabled int
 		var budget sql.NullFloat64
 		var createdMs int64
-		if err := rows.Scan(&k.ID, &k.Name, &k.KeyPrefix, &k.KeyHash, &enabled, &budget, &createdMs); err != nil {
+		var rawKey sql.NullString
+		var limitInt sql.NullString
+		var limIn, limOut, limTot sql.NullInt64
+
+		if err := rows.Scan(&k.ID, &k.Name, &k.KeyPrefix, &k.KeyHash, &enabled, &budget, &createdMs,
+			&rawKey, &limitInt, &limIn, &limOut, &limTot); err != nil {
 			return nil, err
 		}
 		k.Enabled = enabled == 1
@@ -124,6 +147,12 @@ func (s *Store) ListKeys(ctx context.Context) ([]APIKey, error) {
 			k.BudgetUSD = &v
 		}
 		k.CreatedAt = time.UnixMilli(createdMs)
+		if rawKey.Valid { k.RawKey = rawKey.String }
+		if limitInt.Valid { k.LimitInterval = limitInt.String } else { k.LimitInterval = "all_time" }
+		if limIn.Valid { v := limIn.Int64; k.LimitInputTokens = &v }
+		if limOut.Valid { v := limOut.Int64; k.LimitOutputTokens = &v }
+		if limTot.Valid { v := limTot.Int64; k.LimitTotalTokens = &v }
+
 		out = append(out, k)
 	}
 	return out, rows.Err()
@@ -145,9 +174,14 @@ func (s *Store) RenameKey(ctx context.Context, id int64, name string) error {
 	return err
 }
 
-// SetKeyBudget updates an optional soft budget (USD). Pass nil to clear.
-func (s *Store) SetKeyBudget(ctx context.Context, id int64, budget *float64) error {
-	_, err := s.DB.ExecContext(ctx, `UPDATE api_keys SET budget_usd = ? WHERE id = ?`, budget, id)
+// UpdateKeyLimits updates all limit-related fields.
+func (s *Store) UpdateKeyLimits(ctx context.Context, id int64, interval string, budget *float64, in, out, tot *int64) error {
+	_, err := s.DB.ExecContext(ctx,
+		`UPDATE api_keys 
+		 SET limit_interval = ?, budget_usd = ?, limit_input_tokens = ?, limit_output_tokens = ?, limit_total_tokens = ?
+		 WHERE id = ?`,
+		interval, budget, in, out, tot, id,
+	)
 	return err
 }
 
@@ -160,13 +194,19 @@ func (s *Store) DeleteKey(ctx context.Context, id int64) error {
 // GetKeyByID is used by the admin detail view.
 func (s *Store) GetKeyByID(ctx context.Context, id int64) (APIKey, error) {
 	row := s.DB.QueryRowContext(ctx,
-		`SELECT id, name, key_prefix, key_hash, enabled, budget_usd, created_at
+		`SELECT id, name, key_prefix, key_hash, enabled, budget_usd, created_at,
+		        raw_key, limit_interval, limit_input_tokens, limit_output_tokens, limit_total_tokens
 		 FROM api_keys WHERE id = ?`, id)
 	var k APIKey
 	var enabled int
 	var budget sql.NullFloat64
 	var createdMs int64
-	if err := row.Scan(&k.ID, &k.Name, &k.KeyPrefix, &k.KeyHash, &enabled, &budget, &createdMs); err != nil {
+	var rawKey sql.NullString
+	var limitInt sql.NullString
+	var limIn, limOut, limTot sql.NullInt64
+
+	if err := row.Scan(&k.ID, &k.Name, &k.KeyPrefix, &k.KeyHash, &enabled, &budget, &createdMs,
+		&rawKey, &limitInt, &limIn, &limOut, &limTot); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return APIKey{}, ErrKeyNotFound
 		}
@@ -178,6 +218,12 @@ func (s *Store) GetKeyByID(ctx context.Context, id int64) (APIKey, error) {
 		k.BudgetUSD = &v
 	}
 	k.CreatedAt = time.UnixMilli(createdMs)
+	if rawKey.Valid { k.RawKey = rawKey.String }
+	if limitInt.Valid { k.LimitInterval = limitInt.String } else { k.LimitInterval = "all_time" }
+	if limIn.Valid { v := limIn.Int64; k.LimitInputTokens = &v }
+	if limOut.Valid { v := limOut.Int64; k.LimitOutputTokens = &v }
+	if limTot.Valid { v := limTot.Int64; k.LimitTotalTokens = &v }
+
 	return k, nil
 }
 
@@ -198,4 +244,81 @@ func hashKey(secret []byte, raw string) string {
 	mac := hmac.New(sha256.New, secret)
 	mac.Write([]byte(raw))
 	return hex.EncodeToString(mac.Sum(nil))
+}
+
+// LimitStatus contains the current usage and limits for an API key.
+type LimitStatus struct {
+	Exceeded    bool
+	Reason      string // e.g. "budget_exceeded", "input_tokens_exceeded"
+	UsageBudget float64
+	UsageIn     int64
+	UsageOut    int64
+	UsageTot    int64
+}
+
+// CheckKeyLimits queries historical usage for the key based on its LimitInterval
+// and returns whether it has exceeded any of its configured limits.
+func (s *Store) CheckKeyLimits(ctx context.Context, k APIKey) (LimitStatus, error) {
+	var st LimitStatus
+	// If no limits are configured, it's never exceeded.
+	if k.BudgetUSD == nil && k.LimitInputTokens == nil && k.LimitOutputTokens == nil && k.LimitTotalTokens == nil {
+		return st, nil
+	}
+
+	now := time.Now()
+	var startDate string
+	switch k.LimitInterval {
+	case "daily":
+		startDate = now.Format("2006-01-02")
+	case "weekly":
+		// Find previous Monday
+		offset := int(time.Monday - now.Weekday())
+		if offset > 0 {
+			offset -= 7
+		}
+		startDate = now.AddDate(0, 0, offset).Format("2006-01-02")
+	case "monthly":
+		startDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).Format("2006-01-02")
+	case "all_time":
+		startDate = "0000-00-00"
+	default:
+		startDate = "0000-00-00"
+	}
+
+	row := s.DB.QueryRowContext(ctx, `
+		SELECT 
+			COALESCE(SUM(cost_usd), 0), 
+			COALESCE(SUM(input_tokens), 0), 
+			COALESCE(SUM(output_tokens), 0), 
+			COALESCE(SUM(input_tokens + output_tokens + reasoning_tokens), 0)
+		FROM daily_stats
+		WHERE api_key_id = ? AND day >= ?
+	`, k.ID, startDate)
+
+	if err := row.Scan(&st.UsageBudget, &st.UsageIn, &st.UsageOut, &st.UsageTot); err != nil {
+		return st, err
+	}
+
+	if k.BudgetUSD != nil && st.UsageBudget >= *k.BudgetUSD {
+		st.Exceeded = true
+		st.Reason = "budget_exceeded"
+		return st, nil
+	}
+	if k.LimitInputTokens != nil && st.UsageIn >= *k.LimitInputTokens {
+		st.Exceeded = true
+		st.Reason = "input_tokens_exceeded"
+		return st, nil
+	}
+	if k.LimitOutputTokens != nil && st.UsageOut >= *k.LimitOutputTokens {
+		st.Exceeded = true
+		st.Reason = "output_tokens_exceeded"
+		return st, nil
+	}
+	if k.LimitTotalTokens != nil && st.UsageTot >= *k.LimitTotalTokens {
+		st.Exceeded = true
+		st.Reason = "total_tokens_exceeded"
+		return st, nil
+	}
+
+	return st, nil
 }
