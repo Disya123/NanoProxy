@@ -2,14 +2,12 @@
 #
 # Required env vars (set them in your shell, or in Portainer's stack
 # "Environment variables" section):
-#   NANOGPT_API_KEY      — upstream NanoGPT API key
 #   ADMIN_TOKEN          — token to log in to the admin dashboard
 #   ADMIN_COOKIE_SECRET  — 32+ random bytes (hex). Used to sign session cookies.
 #
-# The Go binary itself validates that NANOGPT_API_KEY and ADMIN_TOKEN are
-# non-empty on startup and exits with a clear error if they aren't, so the
-# container will fail loudly (and visibly in `docker compose ps`) instead of
-# booting with empty secrets.
+# NANOGPT_API_KEY is OPTIONAL. On first boot, if it's set in the stack env,
+# the binary seeds it into the settings table; from then on the admin UI at
+# /admin/settings is the source of truth — no restart needed to rotate.
 #
 # Override the image name with: `IMAGE=ghcr.io/you/nano-proxy:0.1.0 docker compose up -d`
 
@@ -21,11 +19,6 @@ x-logging: &logging
     max-size: "10m"
     max-file: "3"
 
-x-defaults: &defaults
-  restart: unless-stopped
-  init: true
-  stop_grace_period: 30s
-
 services:
   nano-proxy:
     # `build:` is used by `docker compose build` and Portainer's
@@ -34,18 +27,21 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    # image: ${IMAGE:-nano-proxy:local}
     image: ${IMAGE:-nano-proxy:local}
     container_name: nano-proxy
-    <<: *defaults
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
     ports:
       - "8080:8080"               # public proxy (clients)
       - "127.0.0.1:8081:8081"     # admin dashboard — loopback-only on the host
     environment:
       # Plain `${VAR}` references — supported by both docker compose v2 and
-      # Portainer. If a var is missing in the stack env section, it expands
-      # to an empty string; the Go binary will then refuse to start with a
-      # clear error message in the container logs.
+      # Portainer. Missing vars expand to an empty string; the Go binary
+      # handles each case explicitly:
+      #   - ADMIN_TOKEN missing  → refuses to start (can't log in)
+      #   - NANOGPT_API_KEY missing on first boot → fine, set it later via UI
+      #   - NANOGPT_API_KEY missing on subsequent boots → loaded from DB
       NANOGPT_API_KEY:     ${NANOGPT_API_KEY}
       ADMIN_TOKEN:         ${ADMIN_TOKEN}
       ADMIN_COOKIE_SECRET: ${ADMIN_COOKIE_SECRET}

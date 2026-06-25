@@ -20,15 +20,16 @@ import (
 
 // Proxy holds shared dependencies for the public-facing routes.
 type Proxy struct {
-	Cfg config.Config
-	St  *store.Store
+	Cfg  config.Config
+	St   *store.Store
+	Keys *KeyProvider
 
 	// upstream is reused across requests; created lazily by getUpstream.
 	upstream *http.Client
 }
 
-func New(cfg config.Config, st *store.Store) *Proxy {
-	return &Proxy{Cfg: cfg, St: st}
+func New(cfg config.Config, st *store.Store, keys *KeyProvider) *Proxy {
+	return &Proxy{Cfg: cfg, St: st, Keys: keys}
 }
 
 // getUpstream returns a shared HTTP client tuned for SSE streaming.
@@ -114,7 +115,13 @@ func (p *Proxy) handleNonStream(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	copyHeaders(upstreamReq.Header, r.Header, "")
-	upstreamReq.Header.Set("Authorization", "Bearer "+p.Cfg.Upstream.APIKey)
+	upstreamKey := p.Keys.Get()
+	if upstreamKey == "" {
+		writeProxyError(w, http.StatusBadGateway, "upstream_key_missing",
+			"upstream NanoGPT API key is not configured — set it via the admin dashboard")
+		return
+	}
+	upstreamReq.Header.Set("Authorization", "Bearer "+upstreamKey)
 	upstreamReq.Header.Set("Content-Type", "application/json")
 	upstreamReq.Header.Set("Accept", "application/json")
 	upstreamReq.Host = "" // let http.Client set it from URL
@@ -164,7 +171,13 @@ func (p *Proxy) handlePassthrough(w http.ResponseWriter, r *http.Request) {
 		writeProxyError(w, http.StatusInternalServerError, "request_build_error", err.Error())
 		return
 	}
-	upstreamReq.Header.Set("Authorization", "Bearer "+p.Cfg.Upstream.APIKey)
+	upstreamKey := p.Keys.Get()
+	if upstreamKey == "" {
+		writeProxyError(w, http.StatusBadGateway, "upstream_key_missing",
+			"upstream NanoGPT API key is not configured — set it via the admin dashboard")
+		return
+	}
+	upstreamReq.Header.Set("Authorization", "Bearer "+upstreamKey)
 	upstreamReq.Header.Set("Accept", "application/json")
 
 	resp, err := p.getUpstream().Do(upstreamReq)

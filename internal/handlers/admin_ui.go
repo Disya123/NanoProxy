@@ -46,3 +46,12 @@ func (h *AdminUI) Keys(w http.ResponseWriter, r *http.Request) {
 		log.Printf("render keys: %v", err)
 	}
 }
+
+// Settings renders the runtime-config page (upstream API key, etc).
+// Data is fetched client-side via /admin/api/settings so updates from the
+// form don't require a page reload roundtrip with the server template.
+func (h *AdminUI) Settings(w http.ResponseWriter, r *http.Request) {
+	if err := ui.RenderPage(w, "settings", nil); err != nil {
+		log.Printf("render settings: %v", err)
+	}
+}

@@ -30,6 +30,19 @@ const api = {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   },
+  async put(url, body) {
+    const res = await fetch(url, {
+      method: "PUT",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : null,
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || `HTTP ${res.status}`);
+    }
+    return res.json();
+  },
   async del(url) {
     const res = await fetch(url, {
       method: "DELETE",
@@ -91,6 +104,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (path === "/admin/" || path === "/admin") return initDashboard();
   if (path.startsWith("/admin/requests")) return initRequests();
   if (path.startsWith("/admin/keys")) return initKeys();
+  if (path.startsWith("/admin/settings")) return initSettings();
 });
 
 function initCommon() {
@@ -461,3 +475,69 @@ function escapeHtml(s) {
   })[c]);
 }
 function escapeAttr(s) { return escapeHtml(s); }
+
+// ───────── Settings page ─────────
+
+async function initSettings() {
+  await loadSettings();
+
+  document.getElementById("form-upstream-key").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = document.getElementById("upstream-key-input");
+    const value = input.value.trim();
+    if (!value) return setFormStatus("Paste a key first.", "warn");
+    setFormStatus("Saving…", "");
+    try {
+      await api.put("/admin/api/settings", { upstream_api_key: value });
+      input.value = "";
+      setFormStatus("Saved — proxy is using the new key for new requests.", "ok");
+      await loadSettings();
+    } catch (err) {
+      setFormStatus(`Failed: ${err.message || err}`, "err");
+    }
+  });
+
+  const reveal = document.getElementById("btn-reveal-key");
+  reveal.addEventListener("click", () => {
+    const input = document.getElementById("upstream-key-input");
+    const isPassword = input.type === "password";
+    input.type = isPassword ? "text" : "password";
+    reveal.textContent = isPassword ? "Hide" : "Show";
+  });
+
+  document.getElementById("btn-clear-key").addEventListener("click", async () => {
+    if (!confirm("Clear the upstream API key? The proxy will return 502 for all traffic until a new key is set.")) return;
+    setFormStatus("Clearing…", "");
+    try {
+      await api.put("/admin/api/settings", { clear_upstream_api_key: true });
+      setFormStatus("Cleared. Configure a new key to resume proxy traffic.", "warn");
+      await loadSettings();
+    } catch (err) {
+      setFormStatus(`Failed: ${err.message || err}`, "err");
+    }
+  });
+}
+
+async function loadSettings() {
+  try {
+    const v = await api.get("/admin/api/settings");
+    const status = document.getElementById("settings-status");
+    const meta = document.getElementById("upstream-key-meta");
+    if (v.upstream_key_set) {
+      const last4 = v.upstream_key_last4 ? `…${v.upstream_key_last4}` : "";
+      status.innerHTML = `<span class="badge badge-ok">configured</span>`;
+      const updated = v.upstream_key_updated_ms ? fmtTime(v.upstream_key_updated_ms) : "";
+      meta.textContent = `${last4}  ·  last updated ${updated}`;
+    } else {
+      status.innerHTML = `<span class="badge badge-warn">not set</span>`;
+      meta.textContent = "proxy will return 502 until configured";
+    }
+  } catch (e) { console.error("settings:", e); }
+}
+
+function setFormStatus(text, kind) {
+  const el = document.getElementById("form-status");
+  if (!el) return;
+  el.textContent = text;
+  el.dataset.kind = kind || "";
+}

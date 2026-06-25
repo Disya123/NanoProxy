@@ -133,9 +133,12 @@ func expandBraced(s string, getter func(string) string) string {
 }
 
 func (c Config) validate() error {
-	if c.Upstream.APIKey == "" {
-		return fmt.Errorf("upstream.api_key is required (set NANOGPT_API_KEY env)")
-	}
+	// Upstream.APIKey is OPTIONAL here. The real bootstrap happens in main():
+	//   1. If the env NANOGPT_API_KEY is set and DB settings is empty,
+	//      seed the env value into the settings table.
+	//   2. Otherwise load whatever is in the settings table.
+	//   3. If both are empty the operator can configure the key from the
+	//      admin UI at first run.
 	if c.Admin.Token == "" {
 		return fmt.Errorf("admin.token is required (set ADMIN_TOKEN env)")
 	}

@@ -14,13 +14,15 @@ Designed for the 512 MB / 10 concurrent-streams / 100k-token envelope.
 - Token usage, cache hits, tool-call diagnostics and latency pulled straight
   from the upstream `usage` and `x_nanogpt_pricing` fields.
 - Admin dashboard embedded in the binary — no CDN, no external assets.
+- **Upstream API key editable from the admin UI** (`/admin/settings`) with
+  hot-swap — no restart needed to rotate. Env `NANOGPT_API_KEY` only used
+  for one-shot bootstrap on a fresh DB.
 
 ## Quick start
 
 ```bash
 # 1. Configure secrets
 cp config.example.yaml config.yaml
-export NANOGPT_API_KEY="sk-..."
 export ADMIN_TOKEN="$(openssl rand -hex 32)"
 export ADMIN_COOKIE_SECRET="$(openssl rand -hex 32)"
 
@@ -34,7 +36,11 @@ CGO_ENABLED=0 go build -ldflags="-s -w" -o nano-proxy ./cmd/nano-proxy
 # 4. Open the dashboard
 xdg-open http://127.0.0.1:8081/
 
-# 5. Create a client key (returns sknp_…; show it once)
+# 5. Set the upstream NanoGPT key from the UI: Settings → API key.
+#    On first boot you can also pass NANOGPT_API_KEY env once to seed it:
+export NANOGPT_API_KEY="sk-..."   # optional: seeded into settings table, then editable from UI
+
+# 6. Create a client key (returns sknp_…; show it once)
 curl -X POST http://127.0.0.1:8081/admin/api/login \
   -c /tmp/jar -H 'Content-Type: application/json' \
   -d "{\"token\":\"$ADMIN_TOKEN\"}"
@@ -42,9 +48,9 @@ curl -X POST http://127.0.0.1:8081/admin/api/keys \
   -b /tmp/jar -H 'Content-Type: application/json' \
   -d '{"name":"alice-app"}'
 
-# 6. Send a request through the proxy
+# 7. Send a request through the proxy
 curl http://127.0.0.1:8080/v1/chat/completions \
-  -H "Authorization: Bearer <client_key_from_step_5>" \
+  -H "Authorization: Bearer <client_key_from_step_6>" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "minimax/minimax-m2.7",

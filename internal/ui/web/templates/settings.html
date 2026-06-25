@@ -1,0 +1,59 @@
+{{define "content"}}
+<section class="hero">
+  <p class="eyebrow">runtime config</p>
+  <div class="hero-head">
+    <h1 class="display">Settings.</h1>
+    <span class="meta-value mono" id="settings-status">Loading…</span>
+  </div>
+  <p class="hero-lead">
+    Values stored here are read on every proxied request. Changes take effect
+    immediately — no container restart, no deploy.
+  </p>
+</section>
+
+<section class="card">
+  <div class="card-head">
+    <h2 class="card-title">Upstream NanoGPT API key</h2>
+    <span class="card-hint mono" id="upstream-key-meta">—</span>
+  </div>
+  <p class="card-lead">
+    The bearer token sent in <code>Authorization: Bearer …</code> to
+    <code>nano-gpt.com/api/v1/…</code>. Rotating here is instant; in-flight
+    requests keep using whatever key was active when they started.
+  </p>
+
+  <form id="form-upstream-key" class="form-stack" autocomplete="off">
+    <label class="field">
+      <span class="field-label">API key</span>
+      <input class="input mono" type="password" name="upstream_api_key"
+             id="upstream-key-input"
+             placeholder="sk-…  (paste the full key)"
+             autocomplete="off" spellcheck="false">
+      <span class="field-hint">Stored encrypted-at-rest only inside the SQLite volume. Never echoed back to the browser.</span>
+    </label>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Save</button>
+      <button type="button" class="btn btn-ghost" id="btn-reveal-key">Show</button>
+      <button type="button" class="btn btn-danger" id="btn-clear-key">Clear key</button>
+      <span class="form-status mono" id="form-status"></span>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <div class="card-head">
+    <h2 class="card-title">Bootstrap</h2>
+  </div>
+  <p class="card-lead">
+    On first start the binary reads <code>NANOGPT_API_KEY</code> from the
+    environment and writes it to the settings table. From then on, the UI is
+    the source of truth — the env var is only consulted when the settings
+    table is empty (fresh deploy, or after clearing the key here).
+  </p>
+  <pre class="code-block mono"># first boot — seed from env, then forget about it
+docker run -e NANOGPT_API_KEY=sk-... …
+
+# later boots — no env var needed
+docker run …   # configure from /admin/settings instead</pre>
+</section>
+{{end}}

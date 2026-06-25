@@ -138,6 +138,15 @@ func (s *Store) migrate() error {
 			prompt_tokens INTEGER NOT NULL DEFAULT 0,
 			PRIMARY KEY (day, api_key_id)
 		)`,
+
+		// settings — runtime-mutable configuration stored in DB and edited
+		// from the admin UI without a restart. Keys are dotted paths:
+		//   "upstream.api_key"      — bearer token sent to nano-gpt.com
+		`CREATE TABLE IF NOT EXISTS settings (
+			key        TEXT PRIMARY KEY,
+			value      TEXT NOT NULL,
+			updated_at INTEGER NOT NULL
+		)`,
 	}
 	for _, q := range stmts {
 		if _, err := s.DB.Exec(q); err != nil {

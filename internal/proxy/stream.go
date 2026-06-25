@@ -42,6 +42,13 @@ type toolCallStream struct {
 func (p *Proxy) handleStream(w http.ResponseWriter, r *http.Request,
 	key store.APIKey, body []byte, model string) {
 
+	upstreamKey := p.Keys.Get()
+	if upstreamKey == "" {
+		writeProxyError(w, http.StatusBadGateway, "upstream_key_missing",
+			"upstream NanoGPT API key is not configured — set it via the admin dashboard")
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(r.Context(), p.Cfg.Upstream.RequestTimeout)
 	defer cancel()
 
@@ -52,7 +59,7 @@ func (p *Proxy) handleStream(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	copyHeaders(upstreamReq.Header, r.Header, "")
-	upstreamReq.Header.Set("Authorization", "Bearer "+p.Cfg.Upstream.APIKey)
+	upstreamReq.Header.Set("Authorization", "Bearer "+upstreamKey)
 	upstreamReq.Header.Set("Content-Type", "application/json")
 	upstreamReq.Header.Set("Accept", "text/event-stream")
 

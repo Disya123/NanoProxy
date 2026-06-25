@@ -4,24 +4,32 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/local/nano-proxy/internal/proxy"
 	"github.com/local/nano-proxy/internal/store"
 )
+
+// SettingUpstreamKey is the dotted-path key in the settings table for the
+// upstream NanoGPT bearer token. Exported so main.go and any CLI tooling
+// can reference the same constant.
+const SettingUpstreamKey = "upstream.api_key"
 
 // AdminAPI bundles the JSON endpoints used by the admin dashboard.
 // Authentication is enforced by auth.AdminHandler.Middleware at mount time.
 type AdminAPI struct {
 	St     *store.Store
 	Secret []byte // HMAC secret for hashing client keys
+	Keys   *proxy.KeyProvider
 }
 
 // NewAdminAPI constructs the JSON handler bundle.
-func NewAdminAPI(st *store.Store, secret []byte) *AdminAPI {
-	return &AdminAPI{St: st, Secret: secret}
+func NewAdminAPI(st *store.Store, secret []byte, keys *proxy.KeyProvider) *AdminAPI {
+	return &AdminAPI{St: st, Secret: secret, Keys: keys}
 }
 
 // ───────── Keys CRUD ─────────
@@ -391,3 +399,84 @@ func clampLimit(n int) int {
 
 func today() time.Time    { t := time.Now().UTC(); return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC) }
 func thirtyDaysAgo() time.Time { return today().AddDate(0, 0, -30) }
+
+// ───────── Settings (upstream API key, etc.) ─────────
+//
+// The upstream NanoGPT bearer token is stored in the settings table and
+// mirrored into a process-wide KeyProvider so the proxy can pick up a
+// rotation without restarting. The Settings page and API never echo the
+// full secret back to the client — only a masked preview + metadata.
+
+type settingsView struct {
+	UpstreamKeySet   bool   `json:"upstream_key_set"`
+	UpstreamKeyLast4 string `json:"upstream_key_last4,omitempty"`
+	UpstreamKeyMS    int64  `json:"upstream_key_updated_ms,omitempty"`
+}
+
+func (h *AdminAPI) GetSettings(w http.ResponseWriter, r *http.Request) {
+	v := h.Keys.Get()
+	view := settingsView{UpstreamKeySet: v != ""}
+	if v != "" {
+		if len(v) > 4 {
+			view.UpstreamKeyLast4 = v[len(v)-4:]
+		}
+		if row, err := h.St.GetSetting(r.Context(), SettingUpstreamKey); err == nil {
+			view.UpstreamKeyMS = row.UpdatedAt
+		}
+	}
+	writeJSON(w, http.StatusOK, view)
+}
+
+type updateSettingsReq struct {
+	UpstreamKey *string `json:"upstream_api_key,omitempty"`
+	ClearKey    bool    `json:"clear_upstream_api_key,omitempty"`
+}
+
+func (h *AdminAPI) UpdateSettings(w http.ResponseWriter, r *http.Request) {
+	var req updateSettingsReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeAPIError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+
+	switch {
+	case req.ClearKey:
+		if err := h.St.DeleteSetting(r.Context(), SettingUpstreamKey); err != nil {
+			writeAPIError(w, http.StatusInternalServerError, "delete_failed", err.Error())
+			return
+		}
+		h.Keys.Set("")
+		log.Printf("settings: upstream.api_key cleared via admin UI — proxy will 502 until a new key is set")
+
+	case req.UpstreamKey != nil:
+		key := strings.TrimSpace(*req.UpstreamKey)
+		if key == "" {
+			writeAPIError(w, http.StatusBadRequest, "empty_key", "upstream_api_key must be non-empty (use clear_upstream_api_key=true to remove)")
+			return
+		}
+		if err := h.St.SetSetting(r.Context(), SettingUpstreamKey, key); err != nil {
+			writeAPIError(w, http.StatusInternalServerError, "write_failed", err.Error())
+			return
+		}
+		h.Keys.Set(key)
+		log.Printf("settings: upstream.api_key updated via admin UI (…%s) — new requests will use the rotated key immediately", tail4(key))
+	}
+
+	// Echo the new view back so the page can update without a second round-trip.
+	v := h.Keys.Get()
+	view := settingsView{UpstreamKeySet: v != ""}
+	if v != "" && len(v) > 4 {
+		view.UpstreamKeyLast4 = v[len(v)-4:]
+	}
+	if row, err := h.St.GetSetting(r.Context(), SettingUpstreamKey); err == nil {
+		view.UpstreamKeyMS = row.UpdatedAt
+	}
+	writeJSON(w, http.StatusOK, view)
+}
+
+func tail4(s string) string {
+	if len(s) <= 4 {
+		return s
+	}
+	return s[len(s)-4:]
+}
