@@ -45,6 +45,9 @@ services:
       NANOGPT_API_KEY:     ${NANOGPT_API_KEY}
       ADMIN_TOKEN:         ${ADMIN_TOKEN}
       ADMIN_COOKIE_SECRET: ${ADMIN_COOKIE_SECRET}
+      HTTP_PROXY:          ${HTTP_PROXY:-}
+      HTTPS_PROXY:         ${HTTPS_PROXY:-}
+      NO_PROXY:            ${NO_PROXY:-}
       # Go runtime tuning for the 512 MB VPS target.
       GOMEMLIMIT: "400MiB"
       GOGC:       "50"
