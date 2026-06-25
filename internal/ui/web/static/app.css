@@ -109,7 +109,7 @@ body::before {
 
 /* ───────── Shell layout ───────── */
 
-.shell { padding: 32px 0 80px; }
+.shell { padding: 0 0 80px; }
 .container {
   max-width: 1280px;
   margin: 0 auto;
@@ -167,7 +167,6 @@ body::before {
 /* ───────── Hero ───────── */
 
 .hero {
-  margin-top: 56px;
   margin-bottom: 56px;
   max-width: 760px;
   animation: fade-up var(--dur-slow) var(--ease-spring) 80ms both;
