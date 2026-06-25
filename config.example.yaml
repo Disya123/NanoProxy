@@ -5,7 +5,7 @@ server:
   # Public proxy listener (clients connect here)
   listen: "0.0.0.0:8080"
   # Admin dashboard listener (keep on localhost or behind firewall)
-  admin_listen: "127.0.0.1:8081"
+  admin_listen: "0.0.0.0:8081"
   read_timeout: "60s"
   write_timeout: "0s"   # 0 = no timeout (required for long SSE streams)
   idle_timeout: "120s"
