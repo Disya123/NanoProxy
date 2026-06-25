@@ -49,7 +49,7 @@ services:
       GOMEMLIMIT: "400MiB"
       GOGC:       "50"
     volumes:
-      - ./config.yaml:/etc/nano-proxy/config.yaml:ro
+
       - nano-data:/home/nano/data
     # Hard memory cap matches the target VPS. RSS will typically settle ~30–60 MB.
     mem_limit: 512m

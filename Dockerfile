@@ -44,7 +44,7 @@ RUN addgroup -S nano && adduser -S nano -G nano
 
 # Binary + reference config.
 COPY --from=builder /out/nano-proxy /usr/local/bin/nano-proxy
-COPY --from=builder /src/config.example.yaml /etc/nano-proxy/config.example.yaml
+COPY --from=builder /src/config.example.yaml /etc/nano-proxy/config.yaml
 
 # Persistent state lives under /home/nano/data (mounted as a volume).
 RUN mkdir -p /home/nano/data && chown -R nano:nano /home/nano
