@@ -59,7 +59,7 @@ func (p *Proxy) handleStream(w http.ResponseWriter, r *http.Request,
 		writeProxyError(w, http.StatusInternalServerError, "request_build_error", err.Error())
 		return
 	}
-	copyHeaders(upstreamReq.Header, r.Header, "")
+	copyHeaders(upstreamReq.Header, r.Header, "Accept-Encoding")
 	upstreamReq.Header.Set("Authorization", "Bearer "+upstreamKey)
 	upstreamReq.Header.Set("Content-Type", "application/json")
 	upstreamReq.Header.Set("Accept", "text/event-stream")
