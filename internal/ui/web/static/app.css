@@ -647,9 +647,9 @@ body::before {
   transition: background var(--dur-fast) var(--ease-spring);
 }
 .table tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
-.col-num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
-.col-time { white-space: nowrap; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.col-status { white-space: nowrap; }
+.table .col-num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+.table .col-time { white-space: nowrap; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.table .col-status { white-space: nowrap; }
 .table .empty { text-align: center; color: var(--text-faint); padding: 32px; }
 
 .pager {
