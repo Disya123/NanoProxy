@@ -17,6 +17,18 @@
     return node;
   }
 
+  function htmlEl(tag, attrs = {}, children = []) {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (v === null || v === undefined) continue;
+      node.setAttribute(k, String(v));
+    }
+    for (const c of children) {
+      if (c) node.appendChild(c);
+    }
+    return node;
+  }
+
   function clear(host) {
     while (host.firstChild) host.removeChild(host.firstChild);
     host.removeAttribute("data-empty");
@@ -413,11 +425,11 @@
     let actualTotal = data.reduce((sum, d) => sum + (d.value || 0), 0);
     let total = actualTotal === 0 ? 1 : actualTotal;
 
-    const wrapper = el("div", {
+    const wrapper = htmlEl("div", {
       style: "display: flex; align-items: center; gap: 32px; width: 100%; justify-content: flex-start; padding: 0 16px;"
     });
 
-    const chartContainer = el("div", {
+    const chartContainer = htmlEl("div", {
       style: "position: relative; width: 200px; height: 200px; flex-shrink: 0;"
     });
 
@@ -472,33 +484,33 @@
     
     chartContainer.appendChild(svg);
     
-    const centerText = el("div", {
+    const centerText = htmlEl("div", {
       style: "position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none;"
     });
-    centerText.appendChild(el("div", { style: "font-size: 20px; font-weight: 600; color: #fff;" }, [document.createTextNode(fmtAxisValue(actualTotal))]));
-    centerText.appendChild(el("div", { style: "font-size: 12px; color: var(--text-2);" }, [document.createTextNode("tokens")]));
+    centerText.appendChild(htmlEl("div", { style: "font-size: 20px; font-weight: 600; color: #fff;" }, [document.createTextNode(fmtAxisValue(actualTotal))]));
+    centerText.appendChild(htmlEl("div", { style: "font-size: 12px; color: var(--text-2);" }, [document.createTextNode("tokens")]));
     chartContainer.appendChild(centerText);
     
     wrapper.appendChild(chartContainer);
     
-    const legend = el("div", { style: "display: flex; flex-direction: column; gap: 12px; flex-grow: 1; max-width: 500px; max-height: 220px; overflow-y: auto; padding-right: 8px;" });
+    const legend = htmlEl("div", { style: "display: flex; flex-direction: column; gap: 12px; flex-grow: 1; max-width: 500px; max-height: 220px; overflow-y: auto; padding-right: 8px;" });
     data.forEach((d, i) => {
       if ((d.value || 0) === 0) return;
       const pct = ((d.value || 0) / total * 100).toFixed(1) + "%";
       
-      const item = el("div", { style: "display: flex; flex-direction: column; gap: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px;" });
+      const item = htmlEl("div", { style: "display: flex; flex-direction: column; gap: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px;" });
       
-      const topRow = el("div", { style: "display: flex; justify-content: space-between; align-items: center; font-size: 13px;" });
-      const leftCol = el("div", { style: "display: flex; align-items: center; gap: 8px; color: #fff;" });
-      leftCol.appendChild(el("span", { style: `display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: ${d.color || colors[i % colors.length]};` }));
-      leftCol.appendChild(el("span", { style: "font-family: var(--font-mono, monospace); font-weight: 600; word-break: break-all;" }, [document.createTextNode(d.label)]));
+      const topRow = htmlEl("div", { style: "display: flex; justify-content: space-between; align-items: center; font-size: 13px;" });
+      const leftCol = htmlEl("div", { style: "display: flex; align-items: center; gap: 8px; color: #fff;" });
+      leftCol.appendChild(htmlEl("span", { style: `display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: ${d.color || colors[i % colors.length]};` }));
+      leftCol.appendChild(htmlEl("span", { style: "font-family: var(--font-mono, monospace); font-weight: 600; word-break: break-all;" }, [document.createTextNode(d.label)]));
       
       topRow.appendChild(leftCol);
-      topRow.appendChild(el("span", { style: "color: var(--text-2);" }, [document.createTextNode(pct)]));
+      topRow.appendChild(htmlEl("span", { style: "color: var(--text-2);" }, [document.createTextNode(pct)]));
       
       item.appendChild(topRow);
       
-      const botRow = el("div", { style: "padding-left: 18px; font-size: 12px; color: var(--text-2);" });
+      const botRow = htmlEl("div", { style: "padding-left: 18px; font-size: 12px; color: var(--text-2);" });
       botRow.appendChild(document.createTextNode(`${fmtAxisValue(d.value)} tokens`));
       
       item.appendChild(botRow);
