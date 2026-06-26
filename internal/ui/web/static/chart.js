@@ -107,8 +107,10 @@
       const val = typeof textGetter === 'function' ? textGetter() : textGetter;
       if (typeof val === 'object' && val.html) {
         tt.innerHTML = val.html;
+        tt.style.whiteSpace = "normal";
       } else {
         tt.textContent = val;
+        tt.style.whiteSpace = "pre";
       }
       tt.style.opacity = "1";
     });
@@ -408,8 +410,8 @@
     const r = 70;
     const strokeWidth = 30;
     
-    let total = data.reduce((sum, d) => sum + (d.value || 0), 0);
-    if (total === 0) total = 1;
+    let actualTotal = data.reduce((sum, d) => sum + (d.value || 0), 0);
+    let total = actualTotal === 0 ? 1 : actualTotal;
 
     const wrapper = el("div", {
       style: "display: flex; align-items: center; gap: 32px; width: 100%; justify-content: flex-start; padding: 0 16px;"
@@ -473,7 +475,7 @@
     const centerText = el("div", {
       style: "position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none;"
     });
-    centerText.appendChild(el("div", { style: "font-size: 20px; font-weight: 600; color: #fff;" }, [document.createTextNode(fmtAxisValue(total))]));
+    centerText.appendChild(el("div", { style: "font-size: 20px; font-weight: 600; color: #fff;" }, [document.createTextNode(fmtAxisValue(actualTotal))]));
     centerText.appendChild(el("div", { style: "font-size: 12px; color: var(--text-2);" }, [document.createTextNode("tokens")]));
     chartContainer.appendChild(centerText);
     

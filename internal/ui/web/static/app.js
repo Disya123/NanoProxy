@@ -363,7 +363,7 @@ async function loadTopModels() {
     const host = document.getElementById("chart-donut-models");
     if (host && window.npChart) {
       window.npChart.renderDonut(host, {
-        data: rows.slice(0, 8).map(r => ({ label: r.model || "—", value: (r.input_tokens || 0) + (r.output_tokens || 0) }))
+        data: rows.slice(0, 8).map(r => ({ label: r.model || "—", value: r.input_tokens || 0 }))
       });
     }
   } catch (e) { console.error("top models:", e); }
