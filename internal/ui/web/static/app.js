@@ -707,7 +707,10 @@ function collectSamplerConfig() {
     const input = document.querySelector(`.sampler-input[data-param="${param}"]`);
     if (!input) continue;
 
-    const raw = input.value.trim();
+    let raw = input.value.trim();
+    if (raw === "") {
+      raw = input.placeholder || "";
+    }
     if (raw === "") continue;
 
     if (param === "stop") {
