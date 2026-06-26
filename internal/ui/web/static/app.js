@@ -686,7 +686,7 @@ function escapeAttr(s) { return escapeHtml(s); }
 
 const SAMPLER_PARAMS = [
   "temperature", "top_p", "frequency_penalty", "presence_penalty",
-  "max_tokens", "seed", "stop", "force_no_stream"
+  "max_tokens", "seed", "stop", "reasoning_effort", "force_no_stream"
 ];
 
 // Collect sampler values from the dialog UI into a JSON object.
@@ -726,6 +726,8 @@ function collectSamplerConfig() {
       if (!isNaN(v)) {
         cfg[param] = { enabled: true, value: v };
       }
+    } else if (param === "reasoning_effort") {
+      cfg[param] = { enabled: true, value: raw };
     } else {
       const v = parseFloat(raw);
       if (!isNaN(v)) {

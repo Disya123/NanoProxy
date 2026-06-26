@@ -23,6 +23,7 @@ type SamplerConfig struct {
 	MaxTokens        *Param[int]      `json:"max_tokens,omitempty"`
 	Seed             *Param[int]      `json:"seed,omitempty"`
 	Stop             *Param[[]string] `json:"stop,omitempty"`
+	ReasoningEffort  *Param[string]   `json:"reasoning_effort,omitempty"`
 	// ForceNoStream overrides the request's stream field to false regardless
 	// of what the client sends. All requests for this key go through the
 	// non-stream handler.
@@ -95,6 +96,10 @@ func MergeSamplers(body []byte, cfg *SamplerConfig) ([]byte, bool, error) {
 	}
 	if cfg.Stop != nil && cfg.Stop.Enabled && len(cfg.Stop.Value) > 0 {
 		m["stop"] = cfg.Stop.Value
+		changed = true
+	}
+	if cfg.ReasoningEffort != nil && cfg.ReasoningEffort.Enabled {
+		m["reasoning_effort"] = cfg.ReasoningEffort.Value
 		changed = true
 	}
 
