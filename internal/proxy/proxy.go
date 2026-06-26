@@ -202,8 +202,10 @@ func (p *Proxy) handleNonStream(w http.ResponseWriter, r *http.Request,
 			} `json:"choices"`
 		}
 		if err := json.Unmarshal(respBody, &nr); err == nil && len(nr.Choices) > 0 {
-			// Construct a chat.completion.chunk
-			chunk := map[string]any{
+			flusher, _ := w.(http.Flusher)
+
+			// 1. Initial chunk with role
+			chunk1 := map[string]any{
 				"id":      nr.ID,
 				"object":  "chat.completion.chunk",
 				"created": nr.Created,
@@ -212,19 +214,74 @@ func (p *Proxy) handleNonStream(w http.ResponseWriter, r *http.Request,
 					{
 						"index": nr.Choices[0].Index,
 						"delta": map[string]string{
-							"role":    nr.Choices[0].Message.Role,
-							"content": nr.Choices[0].Message.Content,
+							"role": nr.Choices[0].Message.Role,
 						},
+						"finish_reason": nil,
+					},
+				},
+			}
+			if b, err := json.Marshal(chunk1); err == nil {
+				fmt.Fprintf(w, "data: %s\n\n", b)
+				if flusher != nil {
+					flusher.Flush()
+				}
+			}
+
+			// 2. Chunks of content
+			content := nr.Choices[0].Message.Content
+			runes := []rune(content)
+			chunkSize := 20
+			delayMs := 5 // ~ 4000 chars/s = ~1000 tokens/s
+
+			for i := 0; i < len(runes); i += chunkSize {
+				end := i + chunkSize
+				if end > len(runes) {
+					end = len(runes)
+				}
+				chunkN := map[string]any{
+					"id":      nr.ID,
+					"object":  "chat.completion.chunk",
+					"created": nr.Created,
+					"model":   nr.Model,
+					"choices": []map[string]any{
+						{
+							"index": nr.Choices[0].Index,
+							"delta": map[string]string{
+								"content": string(runes[i:end]),
+							},
+							"finish_reason": nil,
+						},
+					},
+				}
+				if b, err := json.Marshal(chunkN); err == nil {
+					fmt.Fprintf(w, "data: %s\n\n", b)
+					if flusher != nil {
+						flusher.Flush()
+					}
+				}
+				time.Sleep(time.Duration(delayMs) * time.Millisecond)
+			}
+
+			// 3. Final chunk with finish_reason
+			chunkLast := map[string]any{
+				"id":      nr.ID,
+				"object":  "chat.completion.chunk",
+				"created": nr.Created,
+				"model":   nr.Model,
+				"choices": []map[string]any{
+					{
+						"index":         nr.Choices[0].Index,
+						"delta":         map[string]string{},
 						"finish_reason": nr.Choices[0].FinishReason,
 					},
 				},
 			}
-			if chunkBytes, err := json.Marshal(chunk); err == nil {
-				fmt.Fprintf(w, "data: %s\n\n", chunkBytes)
+			if b, err := json.Marshal(chunkLast); err == nil {
+				fmt.Fprintf(w, "data: %s\n\n", b)
 				fmt.Fprintf(w, "data: [DONE]\n\n")
-			} else {
-				// Fallback if marshal fails
-				_, _ = w.Write(respBody)
+				if flusher != nil {
+					flusher.Flush()
+				}
 			}
 		} else {
 			// Fallback if unmarshal fails
