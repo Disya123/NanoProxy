@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -129,14 +130,14 @@ func (p *Proxy) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		p.handleStream(w, r, key, modifiedBody, meta.Model)
 		return
 	}
-	p.handleNonStream(w, r, key, modifiedBody, meta.Model)
+	p.handleNonStream(w, r, key, modifiedBody, meta.Model, wasStreamForced)
 }
 
 // handleNonStream performs a blocking upstream call. The response body is
 // captured in full so we can extract usage + pricing before flushing it
 // back to the client. This is fine for non-stream responses (typically < 64 KB).
 func (p *Proxy) handleNonStream(w http.ResponseWriter, r *http.Request,
-	key store.APIKey, body []byte, model string) {
+	key store.APIKey, body []byte, model string, wasStreamForced bool) {
 
 	ctx, cancel := context.WithTimeout(r.Context(), p.Cfg.Upstream.RequestTimeout)
 	defer cancel()
@@ -179,10 +180,62 @@ func (p *Proxy) handleNonStream(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	// Copy upstream headers (preserve content-type etc.) for the client.
-	copyHeaders(w.Header(), resp.Header, "Content-Length", "Content-Encoding")
-	w.WriteHeader(resp.StatusCode)
-	_, _ = w.Write(respBody)
+	if wasStreamForced && resp.StatusCode == http.StatusOK {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		w.WriteHeader(http.StatusOK)
+
+		// Convert non-stream JSON to a single SSE chunk.
+		var nr struct {
+			ID      string `json:"id"`
+			Object  string `json:"object"`
+			Created int64  `json:"created"`
+			Model   string `json:"model"`
+			Choices []struct {
+				Index   int `json:"index"`
+				Message struct {
+					Role    string `json:"role"`
+					Content string `json:"content"`
+				} `json:"message"`
+				FinishReason any `json:"finish_reason"`
+			} `json:"choices"`
+		}
+		if err := json.Unmarshal(respBody, &nr); err == nil && len(nr.Choices) > 0 {
+			// Construct a chat.completion.chunk
+			chunk := map[string]any{
+				"id":      nr.ID,
+				"object":  "chat.completion.chunk",
+				"created": nr.Created,
+				"model":   nr.Model,
+				"choices": []map[string]any{
+					{
+						"index": nr.Choices[0].Index,
+						"delta": map[string]string{
+							"role":    nr.Choices[0].Message.Role,
+							"content": nr.Choices[0].Message.Content,
+						},
+						"finish_reason": nr.Choices[0].FinishReason,
+					},
+				},
+			}
+			if chunkBytes, err := json.Marshal(chunk); err == nil {
+				fmt.Fprintf(w, "data: %s\n\n", chunkBytes)
+				fmt.Fprintf(w, "data: [DONE]\n\n")
+			} else {
+				// Fallback if marshal fails
+				_, _ = w.Write(respBody)
+			}
+		} else {
+			// Fallback if unmarshal fails
+			_, _ = w.Write(respBody)
+		}
+	} else {
+		// Copy upstream headers (preserve content-type etc.) for the client.
+		copyHeaders(w.Header(), resp.Header, "Content-Length", "Content-Encoding")
+		w.WriteHeader(resp.StatusCode)
+		_, _ = w.Write(respBody)
+	}
 
 	// Telemetry — fire-and-forget so the client isn't waiting on SQLite.
 	go p.recordFromResponse(context.Background(), key, model, false,
@@ -261,7 +314,12 @@ func (p *Proxy) handleModels(w http.ResponseWriter, r *http.Request) {
 	if err != nil || resp.StatusCode != http.StatusOK {
 		// Serve stale cache as a fallback if upstream fails
 		if cache != nil {
-			log.Printf("[Proxy] upstream models failed (%v, status=%d), serving stale cache", err, func() int { if resp != nil { return resp.StatusCode }; return 0 }())
+			log.Printf("[Proxy] upstream models failed (%v, status=%d), serving stale cache", err, func() int {
+				if resp != nil {
+					return resp.StatusCode
+				}
+				return 0
+			}())
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write(cache)
