@@ -143,11 +143,11 @@ func (h *AdminAPI) PatchKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update limits if any limit-related field is provided
-	if req.LimitInterval != nil || req.BudgetUSD != nil || req.ClearBudget || 
-	   req.LimitInputTokens != nil || req.ClearInputTokens ||
-	   req.LimitOutputTokens != nil || req.ClearOutputTokens ||
-	   req.LimitTotalTokens != nil || req.ClearTotalTokens {
-		
+	if req.LimitInterval != nil || req.BudgetUSD != nil || req.ClearBudget ||
+		req.LimitInputTokens != nil || req.ClearInputTokens ||
+		req.LimitOutputTokens != nil || req.ClearOutputTokens ||
+		req.LimitTotalTokens != nil || req.ClearTotalTokens {
+
 		key, err := h.St.GetKeyByID(r.Context(), id)
 		if err != nil {
 			writeAPIError(w, http.StatusInternalServerError, "get_key_failed", err.Error())
@@ -188,24 +188,25 @@ func (h *AdminAPI) PatchKey(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := h.St.UpdateKeyLimits(r.Context(), id, interval, budget, in, out, tot); err != nil {
-				writeAPIError(w, http.StatusInternalServerError, "limits_failed", err.Error())
-				return
-			}
+			writeAPIError(w, http.StatusInternalServerError, "limits_failed", err.Error())
+			return
 		}
+	}
 
-		// Update sampler config (JSON object or null/empty to clear).
-		if req.SamplerConfig != nil {
-			raw := strings.TrimSpace(string(*req.SamplerConfig))
-			if raw == "" || raw == "null" || raw == "{}" {
-				raw = ""
-			}
-			if err := h.St.UpdateKeySamplerConfig(r.Context(), id, raw); err != nil {
-				writeAPIError(w, http.StatusInternalServerError, "sampler_config_failed", err.Error())
-				return
-			}
+	// Update sampler config (JSON object or null/empty to clear).
+	if req.SamplerConfig != nil {
+		raw := strings.TrimSpace(string(*req.SamplerConfig))
+		log.Printf("[sampler] PatchKey id=%d raw=%q", id, raw)
+		if raw == "" || raw == "null" || raw == "{}" {
+			raw = ""
 		}
+		if err := h.St.UpdateKeySamplerConfig(r.Context(), id, raw); err != nil {
+			writeAPIError(w, http.StatusInternalServerError, "sampler_config_failed", err.Error())
+			return
+		}
+	}
 
-		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (h *AdminAPI) DeleteKey(w http.ResponseWriter, r *http.Request) {
