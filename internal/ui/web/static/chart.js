@@ -466,7 +466,7 @@
 
     const cellSize = 12;
     const cellGap = 3;
-    const maxWeeks = 14; 
+    const maxWeeks = 26; 
     
     const W = (cellSize + cellGap) * maxWeeks + 30; // 30px for Y-axis labels
     const H = (cellSize + cellGap) * 7 + 20; // 20px for X-axis labels
@@ -491,8 +491,8 @@
     let maxValue = 1;
     const map = new Map();
     data.forEach(d => {
-      map.set(d.day, d.value);
-      if (d.value > maxValue) maxValue = d.value;
+      map.set(d.day, d);
+      if (d.tokens > maxValue) maxValue = d.tokens;
     });
 
     const days = [];
@@ -535,12 +535,12 @@
         
         const y = 20 + dayOfWeek * (cellSize + cellGap);
         const dayStr = d.toISOString().split('T')[0];
-        const val = map.get(dayStr) || 0;
+        const val = map.get(dayStr) || { requests: 0, tokens: 0 };
         
         // Compute color intensity (0.1 to 1.0)
         let opacity = 0.05;
-        if (val > 0) {
-           opacity = 0.2 + (val / maxValue) * 0.8;
+        if (val.tokens > 0) {
+           opacity = 0.2 + (val.tokens / maxValue) * 0.8;
         }
         
         const rect = el("rect", {
@@ -558,7 +558,7 @@
         rect.addEventListener("mouseleave", () => {
            rect.setAttribute("stroke", "rgba(255,255,255,0.05)");
         });
-        bindTooltip(rect, `${dayStr}: ${val}`);
+        bindTooltip(rect, `${dayStr}\nTokens: ${fmtAxisValue(val.tokens)}\nRequests: ${fmtAxisValue(val.requests)}`);
         
         svg.appendChild(rect);
       });

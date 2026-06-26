@@ -240,9 +240,8 @@ function renderHeatmapChart() {
     window.npChart.setEmpty(host, "No data");
     return;
   }
-  // Let's use requests for the heatmap
   window.npChart.renderHeatmap(host, {
-    points: seriesCache.map((p) => ({ day: p.day, value: p.requests })),
+    points: seriesCache.map((p) => ({ day: p.day, requests: p.requests, tokens: (p.input_tokens || 0) + (p.output_tokens || 0) })),
   });
 }
 
