@@ -74,7 +74,7 @@ func Default() Config {
 			CookieTTL: 12 * time.Hour,
 		},
 		Limits: LimitsConfig{
-			MaxBodyBytes:  2 << 20, // 2 MiB
+			MaxBodyBytes:  20 << 20, // 20 MiB
 			MaxConcurrent: 64,
 		},
 	}

@@ -26,5 +26,5 @@ admin:
   cookie_ttl: "12h"
 
 limits:
-  max_body_bytes: 2097152        # 2 MB request body cap (protect upstream)
+  max_body_bytes: 20971520       # 20 MB request body cap (protect upstream, allows images)
   max_concurrent: 64             # semaphore for upstream concurrency
