@@ -221,6 +221,7 @@ function bindSeriesTabs() {
 }
 
 let seriesCache = [];
+let seriesModelCache = [];
 
 async function loadTimeSeries() {
   try {
@@ -228,6 +229,12 @@ async function loadTimeSeries() {
   } catch (e) {
     seriesCache = [];
     console.error("timeseries:", e);
+  }
+  try {
+    seriesModelCache = await api.get(`/admin/api/stats/timeseries?by=model&${rangeParams()}`);
+  } catch (e) {
+    seriesModelCache = [];
+    console.error("timeseries models:", e);
   }
   renderMainChart();
   renderHeatmapChart();
@@ -266,13 +273,25 @@ function renderMainChart() {
       area: true,
     });
   } else {
-    window.npChart.renderStacked(host, {
-      points: seriesCache,
-      series: [
-        { key: "input_tokens",  label: "Input",  color: "#3b82f6" },
-        { key: "output_tokens", label: "Output", color: "#10b981" },
-        { key: "cached_tokens", label: "Cached", color: "#f59e0b" },
-      ],
+    // Group models by day
+    const byDay = new Map();
+    const modelsSet = new Set();
+    for (const row of seriesModelCache) {
+      if (!byDay.has(row.day)) byDay.set(row.day, { day: row.day });
+      byDay.get(row.day)[row.model] = row.tokens;
+      modelsSet.add(row.model);
+    }
+    const points = Array.from(byDay.values()).sort((a, b) => a.day.localeCompare(b.day));
+    const colors = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#f43f5e", "#f97316"];
+    const series = Array.from(modelsSet).map((m, i) => ({
+      key: m,
+      label: m,
+      color: colors[i % colors.length]
+    }));
+
+    window.npChart.renderStackedBars(host, {
+      points: points,
+      series: series,
     });
   }
 }

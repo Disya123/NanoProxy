@@ -406,6 +406,134 @@
     host.appendChild(svg);
   }
 
+  function renderStackedBars(host, opts) {
+    if (!host) return;
+    const data = opts.points || [];
+    if (data.length === 0) {
+      setEmpty(host, "No data in this range yet.");
+      return;
+    }
+    clear(host);
+
+    const cssGrid = "rgba(255,255,255,0.05)";
+    const cssAxis = "#71717a";
+    const cssText = "#a1a1aa";
+
+    const rect = host.getBoundingClientRect();
+    const W = Math.max(rect.width, 320);
+    const H = Math.max(rect.height, 200) - 60; // Leave space for legend
+    const padL = 44, padR = 14, padT = 12, padB = 24;
+    const innerW = W - padL - padR;
+    const innerH = H - padT - padB;
+
+    const n = data.length;
+    
+    // For bars, xOf is the center of the bar
+    const xStep = innerW / Math.max(1, n);
+    const barW = Math.max(2, Math.min(xStep * 0.8, 40)); // Max width 40px
+    const xOf = (i) => padL + i * xStep + xStep / 2;
+
+    const totals = data.map((p) =>
+      (opts.series || []).reduce((s, sr) => s + (Number(p[sr.key]) || 0), 0));
+    const yMax = Math.max(...totals, 1);
+    const yOf = (v) => padT + innerH - (v / yMax) * innerH;
+
+    const wrapper = htmlEl("div", { style: "display: flex; flex-direction: column; width: 100%; height: 100%;" });
+    const chartContainer = htmlEl("div", { style: "flex-grow: 1; min-height: 0; position: relative;" });
+
+    const svg = el("svg", {
+      viewBox: `0 0 ${W} ${H}`, width: "100%", height: "100%", role: "img", preserveAspectRatio: "none"
+    });
+
+    // Y grid lines.
+    const ticks = niceTicks(0, yMax, 4);
+    for (const t of ticks) {
+      const y = yOf(t);
+      svg.appendChild(el("line", {
+        x1: padL, x2: W - padR, y1: y, y2: y,
+        stroke: cssGrid, "stroke-width": 1,
+      }));
+      svg.appendChild(el("text", {
+        x: padL - 8, y: y + 3, "text-anchor": "end",
+        "font-family": "var(--font-mono, monospace)",
+        "font-size": 10, fill: cssText,
+      }, [document.createTextNode(fmtAxisValue(t))]));
+    }
+
+    // X labels.
+    const xLabelEvery = Math.max(1, Math.floor(n / 6));
+    for (let i = 0; i < n; i++) {
+      if (i % xLabelEvery !== 0 && i !== n - 1) continue;
+      const x = xOf(i);
+      svg.appendChild(el("line", {
+        x1: x, x2: x, y1: H - padB, y2: H - padB + 4,
+        stroke: cssAxis, "stroke-width": 1,
+      }));
+      svg.appendChild(el("text", {
+        x, y: H - padB + 16, "text-anchor": "middle",
+        "font-family": "var(--font-mono, monospace)",
+        "font-size": 10, fill: cssText,
+      }, [document.createTextNode(fmtDayLabel(data[i].day))]));
+    }
+
+    // Stacked bars.
+    for (let i = 0; i < n; i++) {
+      let currentY = padT + innerH; // Start from bottom
+      for (const sr of opts.series || []) {
+        const v = Number(data[i][sr.key]) || 0;
+        if (v === 0) continue;
+        const h = (v / yMax) * innerH;
+        currentY -= h;
+        
+        svg.appendChild(el("rect", {
+          x: xOf(i) - barW / 2, y: currentY, width: barW, height: Math.max(0.5, h),
+          fill: sr.color, stroke: "none",
+        }));
+      }
+      
+      // Invisible hover rect for tooltip
+      const hoverRect = el("rect", {
+        x: xOf(i) - xStep / 2, y: padT, width: xStep, height: innerH,
+        fill: "transparent", cursor: "pointer"
+      });
+      
+      let html = `<div style="font-weight:bold; margin-bottom:6px; color:#fff; display:flex; justify-content:space-between; gap:12px;"><span>${data[i].day}</span> <span>${fmtAxisValue(totals[i])} tokens</span></div>`;
+      for (const sr of [...(opts.series || [])].reverse()) {
+        const v = Number(data[i][sr.key]) || 0;
+        if (v > 0) {
+           html += `<div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom:4px; gap:16px;">
+             <div style="display:flex; align-items:center; gap:6px;">
+               <div style="width:4px; height:12px; border-radius:2px; background-color:${sr.color};"></div>
+               <span style="color:var(--text-2); font-family:var(--font-mono, monospace);">${sr.label}</span>
+             </div>
+             <span style="color:#fff;">${v.toLocaleString()}</span>
+           </div>`;
+        }
+      }
+      
+      bindTooltip(hoverRect, { html });
+      svg.appendChild(hoverRect);
+    }
+    
+    chartContainer.appendChild(svg);
+    wrapper.appendChild(chartContainer);
+    
+    // Legend
+    const legend = htmlEl("div", { 
+      style: "display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px 16px; padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; overflow-y: auto; max-height: 80px;" 
+    });
+    
+    for (const sr of opts.series || []) {
+      const item = htmlEl("div", { style: "display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2);" });
+      item.appendChild(htmlEl("span", { style: `display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: ${sr.color}; flex-shrink: 0;` }));
+      item.appendChild(htmlEl("span", { style: "font-family: var(--font-mono, monospace); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" }, [document.createTextNode(sr.label)]));
+      legend.appendChild(item);
+    }
+    
+    wrapper.appendChild(legend);
+    host.appendChild(wrapper);
+  }
+
   function renderDonut(host, opts) {
     if (!host) return;
     const data = opts.data || [];
@@ -633,5 +761,12 @@
     host.appendChild(svg);
   }
 
-  window.npChart = { renderLine, renderStacked, renderDonut, renderHeatmap, setEmpty };
+  window.npChart = {
+    renderLine,
+    renderStacked,
+    renderStackedBars,
+    renderHeatmap,
+    renderDonut,
+    setEmpty,
+  };
 })();

@@ -162,6 +162,39 @@ func (s *Store) TimeSeries(ctx context.Context, r Range, apiKeyID int64) ([]Time
 	return out, rows.Err()
 }
 
+// TimeSeriesModelPoint is one bucket for a specific model in a time-series chart.
+type TimeSeriesModelPoint struct {
+	Day    string `json:"day"`
+	Model  string `json:"model"`
+	Tokens int64  `json:"tokens"`
+}
+
+// TimeSeriesModels returns day-by-day input tokens grouped by model.
+func (s *Store) TimeSeriesModels(ctx context.Context, r Range, apiKeyID int64) ([]TimeSeriesModelPoint, error) {
+	fromMS, toMS := r.ResolveMS()
+	q := `SELECT day, model, SUM(input_tokens)
+	      FROM daily_stats
+	      WHERE day >= ? AND day < ?
+	        AND (? = 0 OR api_key_id = ?)
+	      GROUP BY day, model
+	      ORDER BY day`
+	rows, err := s.DB.QueryContext(ctx, q, fmtDay(fromMS), fmtDay(toMS), apiKeyID, apiKeyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []TimeSeriesModelPoint
+	for rows.Next() {
+		var p TimeSeriesModelPoint
+		if err := rows.Scan(&p.Day, &p.Model, &p.Tokens); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
 // KeyTotal is one row of the per-key summary table.
 type KeyTotal struct {
 	APIKeyID    int64   `json:"api_key_id"`

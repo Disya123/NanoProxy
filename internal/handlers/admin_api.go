@@ -212,6 +212,18 @@ func (h *AdminAPI) Summary(w http.ResponseWriter, r *http.Request) {
 func (h *AdminAPI) TimeSeries(w http.ResponseWriter, r *http.Request) {
 	rng := parseRange(r)
 	keyID, _ := strconv.ParseInt(r.URL.Query().Get("key"), 10, 64)
+	by := r.URL.Query().Get("by")
+
+	if by == "model" {
+		pts, err := h.St.TimeSeriesModels(r.Context(), rng, keyID)
+		if err != nil {
+			writeAPIError(w, http.StatusInternalServerError, "series_failed", err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, pts)
+		return
+	}
+
 	pts, err := h.St.TimeSeries(r.Context(), rng, keyID)
 	if err != nil {
 		writeAPIError(w, http.StatusInternalServerError, "series_failed", err.Error())
