@@ -646,13 +646,17 @@ async function loadKeys() {
     tb.querySelectorAll('[data-action="limits"]').forEach((b) =>
       b.addEventListener("click", () => {
         const k = JSON.parse(b.dataset.key);
-        document.getElementById("edit-limits-id").value = k.id;
-        document.getElementById("edit-limit-interval").value = k.limit_interval || "all_time";
-        document.getElementById("edit-budget").value = k.budget_usd || "";
-        document.getElementById("edit-limit-in").value = k.limit_input_tokens || "";
-        document.getElementById("edit-limit-out").value = k.limit_output_tokens || "";
-        document.getElementById("edit-limit-tot").value = k.limit_total_tokens || "";
-        applySamplerConfig(k.sampler_config);
+        const k2 = JSON.parse(b.dataset.key);
+        console.log("[limits] sampler_config from server:", JSON.stringify(k2.sampler_config));
+        document.getElementById("edit-limits-id").value = k2.id;
+        document.getElementById("edit-limit-interval").value = k2.limit_interval || "all_time";
+        document.getElementById("edit-budget").value = k2.budget_usd || "";
+        document.getElementById("edit-limit-in").value = k2.limit_input_tokens || "";
+        document.getElementById("edit-limit-out").value = k2.limit_output_tokens || "";
+        document.getElementById("edit-limit-tot").value = k2.limit_total_tokens || "";
+        applySamplerConfig(k2.sampler_config);
+        const tToggle = document.querySelector('.toggle-checkbox[data-param="temperature"]');
+        console.log("[limits] temperature toggle after apply:", tToggle ? tToggle.checked : "not found");
         document.getElementById("dlg-edit-limits").showModal();
       }));
   } catch (e) { console.error("keys:", e); }
