@@ -148,7 +148,7 @@ func (p *Proxy) handleNonStream(w http.ResponseWriter, r *http.Request,
 		writeProxyError(w, http.StatusInternalServerError, "request_build_error", err.Error())
 		return
 	}
-	copyHeaders(upstreamReq.Header, r.Header, "")
+	copyHeaders(upstreamReq.Header, r.Header, "Accept-Encoding")
 	upstreamKey := p.Keys.Get()
 	if upstreamKey == "" {
 		writeProxyError(w, http.StatusBadGateway, "upstream_key_missing",
