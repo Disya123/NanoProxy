@@ -6,7 +6,7 @@
 #
 
 # ---------- 1. builder ----------
-FROM golang:1.22-alpine AS builder
+FROM golang:alpine AS builder
 
 # Toolchain hints for reproducible builds.
 ENV CGO_ENABLED=0 \

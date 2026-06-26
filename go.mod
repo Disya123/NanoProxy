@@ -1,9 +1,9 @@
 module github.com/local/nano-proxy
 
-go 1.22.0
+go 1.25.0
 
 require (
-	golang.org/x/image v0.43.0
+	golang.org/x/image v0.18.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.34.4
 )
