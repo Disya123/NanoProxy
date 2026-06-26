@@ -104,7 +104,12 @@
   function bindTooltip(node, textGetter) {
     node.addEventListener("mouseenter", (e) => {
       const tt = getTooltip();
-      tt.textContent = typeof textGetter === 'function' ? textGetter() : textGetter;
+      const val = typeof textGetter === 'function' ? textGetter() : textGetter;
+      if (typeof val === 'object' && val.html) {
+        tt.innerHTML = val.html;
+      } else {
+        tt.textContent = val;
+      }
       tt.style.opacity = "1";
     });
     node.addEventListener("mousemove", (e) => {
@@ -406,8 +411,16 @@
     let total = data.reduce((sum, d) => sum + (d.value || 0), 0);
     if (total === 0) total = 1;
 
+    const wrapper = el("div", {
+      style: "display: flex; align-items: center; gap: 32px; width: 100%; justify-content: flex-start; padding: 0 16px;"
+    });
+
+    const chartContainer = el("div", {
+      style: "position: relative; width: 200px; height: 200px; flex-shrink: 0;"
+    });
+
     const svg = el("svg", {
-      viewBox: `0 0 ${W} ${H}`, width: "100%", height: "100%", style: "max-height: 200px;", role: "img",
+      viewBox: `0 0 ${W} ${H}`, width: "100%", height: "100%", role: "img",
     });
 
     let cumulativePct = 0;
@@ -420,10 +433,11 @@
       const dashArray = `${pct * 2 * Math.PI * r} ${2 * Math.PI * r}`;
       const dashOffset = -cumulativePct * 2 * Math.PI * r;
       
+      const color = d.color || colors[i % colors.length];
       const slice = el("circle", {
         cx: cx, cy: cy, r: r,
         fill: "transparent",
-        stroke: d.color || colors[i % colors.length],
+        stroke: color,
         "stroke-width": strokeWidth,
         "stroke-dasharray": dashArray,
         "stroke-dashoffset": dashOffset,
@@ -435,24 +449,62 @@
       
       slice.addEventListener("mouseenter", () => slice.setAttribute("stroke-width", strokeWidth + 4));
       slice.addEventListener("mouseleave", () => slice.setAttribute("stroke-width", strokeWidth));
-      bindTooltip(slice, `${d.label}: ${fmtAxisValue(d.value)}`);
+      
+      const pctStr = (pct * 100).toFixed(1) + "%";
+      const tooltipHtml = `
+<div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+  <div style="width:4px; height:12px; border-radius:2px; background-color:${color};"></div>
+  <span style="color:var(--text-2); font-size:12px;">${d.label}</span>
+</div>
+<div style="font-size:12px; display:flex; align-items:center; gap:8px;">
+  <span style="font-weight:bold; color:#fff;">${fmtAxisValue(d.value)} tokens</span>
+  <span style="color:var(--text-2);">${pctStr}</span>
+</div>
+      `;
+      bindTooltip(slice, { html: tooltipHtml });
       
       svg.appendChild(slice);
       
       cumulativePct += pct;
     });
     
-    host.appendChild(svg);
+    chartContainer.appendChild(svg);
     
-    // Add legend
-    const legend = el("div", { style: "display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 16px; font-size: 12px; color: var(--text-2);" });
+    const centerText = el("div", {
+      style: "position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none;"
+    });
+    centerText.appendChild(el("div", { style: "font-size: 20px; font-weight: 600; color: #fff;" }, [document.createTextNode(fmtAxisValue(total))]));
+    centerText.appendChild(el("div", { style: "font-size: 12px; color: var(--text-2);" }, [document.createTextNode("tokens")]));
+    chartContainer.appendChild(centerText);
+    
+    wrapper.appendChild(chartContainer);
+    
+    const legend = el("div", { style: "display: flex; flex-direction: column; gap: 12px; flex-grow: 1; max-width: 500px; max-height: 220px; overflow-y: auto; padding-right: 8px;" });
     data.forEach((d, i) => {
-      const item = el("div", { style: "display: flex; align-items: center; gap: 4px;" });
-      item.appendChild(el("span", { style: `display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: ${d.color || colors[i % colors.length]};` }));
-      item.appendChild(el("span", {}, [document.createTextNode(d.label)]));
+      if ((d.value || 0) === 0) return;
+      const pct = ((d.value || 0) / total * 100).toFixed(1) + "%";
+      
+      const item = el("div", { style: "display: flex; flex-direction: column; gap: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px;" });
+      
+      const topRow = el("div", { style: "display: flex; justify-content: space-between; align-items: center; font-size: 13px;" });
+      const leftCol = el("div", { style: "display: flex; align-items: center; gap: 8px; color: #fff;" });
+      leftCol.appendChild(el("span", { style: `display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: ${d.color || colors[i % colors.length]};` }));
+      leftCol.appendChild(el("span", { style: "font-family: var(--font-mono, monospace); font-weight: 600; word-break: break-all;" }, [document.createTextNode(d.label)]));
+      
+      topRow.appendChild(leftCol);
+      topRow.appendChild(el("span", { style: "color: var(--text-2);" }, [document.createTextNode(pct)]));
+      
+      item.appendChild(topRow);
+      
+      const botRow = el("div", { style: "padding-left: 18px; font-size: 12px; color: var(--text-2);" });
+      botRow.appendChild(document.createTextNode(`${fmtAxisValue(d.value)} tokens`));
+      
+      item.appendChild(botRow);
       legend.appendChild(item);
     });
-    host.appendChild(legend);
+    
+    wrapper.appendChild(legend);
+    host.appendChild(wrapper);
   }
 
   function renderHeatmap(host, opts) {
