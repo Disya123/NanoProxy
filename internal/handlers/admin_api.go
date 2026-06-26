@@ -114,8 +114,8 @@ func (h *AdminAPI) ListKeys(w http.ResponseWriter, r *http.Request) {
 		LimitTotalTokens   *int64   `json:"limit_total_tokens,omitempty"`
 		ClearTotalTokens   bool     `json:"clear_total_tokens,omitempty"`
 
-		// Sampler config (JSON string or object)
-		SamplerConfig *string `json:"sampler_config,omitempty"`
+		// Sampler config (JSON object accepted as raw bytes)
+		SamplerConfig *json.RawMessage `json:"sampler_config,omitempty"`
 	}
 
 func (h *AdminAPI) PatchKey(w http.ResponseWriter, r *http.Request) {
@@ -195,11 +195,11 @@ func (h *AdminAPI) PatchKey(w http.ResponseWriter, r *http.Request) {
 
 		// Update sampler config (JSON object or null/empty to clear).
 		if req.SamplerConfig != nil {
-			configStr := strings.TrimSpace(*req.SamplerConfig)
-			if configStr == "" || configStr == "null" || configStr == "{}" {
-				configStr = ""
+			raw := strings.TrimSpace(string(*req.SamplerConfig))
+			if raw == "" || raw == "null" || raw == "{}" {
+				raw = ""
 			}
-			if err := h.St.UpdateKeySamplerConfig(r.Context(), id, configStr); err != nil {
+			if err := h.St.UpdateKeySamplerConfig(r.Context(), id, raw); err != nil {
 				writeAPIError(w, http.StatusInternalServerError, "sampler_config_failed", err.Error())
 				return
 			}
