@@ -200,6 +200,14 @@ func (p *Proxy) handleNonStream(w http.ResponseWriter, r *http.Request,
 					Role      string `json:"role"`
 					Content   string `json:"content"`
 					Reasoning string `json:"reasoning,omitempty"`
+					ToolCalls []struct {
+						ID       string `json:"id"`
+						Type     string `json:"type"`
+						Function struct {
+							Name      string `json:"name"`
+							Arguments string `json:"arguments"`
+						} `json:"function"`
+					} `json:"tool_calls,omitempty"`
 				} `json:"message"`
 				FinishReason any `json:"finish_reason"`
 			} `json:"choices"`
@@ -267,7 +275,46 @@ func (p *Proxy) handleNonStream(w http.ResponseWriter, r *http.Request,
 				}
 			}
 
-			// 3. Chunks of content
+			// 3. Tool calls (if any)
+			toolCalls := nr.Choices[0].Message.ToolCalls
+			if len(toolCalls) > 0 {
+				var deltaToolCalls []map[string]any
+				for i, tc := range toolCalls {
+					deltaToolCalls = append(deltaToolCalls, map[string]any{
+						"index": i,
+						"id":    tc.ID,
+						"type":  tc.Type,
+						"function": map[string]any{
+							"name":      tc.Function.Name,
+							"arguments": tc.Function.Arguments,
+						},
+					})
+				}
+				chunkT := map[string]any{
+					"id":      nr.ID,
+					"object":  "chat.completion.chunk",
+					"created": nr.Created,
+					"model":   nr.Model,
+					"choices": []map[string]any{
+						{
+							"index": nr.Choices[0].Index,
+							"delta": map[string]any{
+								"tool_calls": deltaToolCalls,
+							},
+							"finish_reason": nil,
+						},
+					},
+				}
+				if b, err := json.Marshal(chunkT); err == nil {
+					fmt.Fprintf(w, "data: %s\n\n", b)
+					if flusher != nil {
+						flusher.Flush()
+					}
+				}
+				time.Sleep(time.Duration(delayMs) * time.Millisecond)
+			}
+
+			// 4. Chunks of content
 			content := nr.Choices[0].Message.Content
 			runes := []rune(content)
 
@@ -300,7 +347,7 @@ func (p *Proxy) handleNonStream(w http.ResponseWriter, r *http.Request,
 				time.Sleep(time.Duration(delayMs) * time.Millisecond)
 			}
 
-			// 4. Final chunk with finish_reason
+			// 5. Final chunk with finish_reason
 			chunkLast := map[string]any{
 				"id":      nr.ID,
 				"object":  "chat.completion.chunk",
