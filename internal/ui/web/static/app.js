@@ -61,6 +61,13 @@ const fmtUSD = (v) => {
   return "$" + v.toFixed(2);
 };
 const fmtNum = (v) => (v ?? 0).toLocaleString("en-US");
+const fmtCompact = (v) => {
+  const n = Number(v ?? 0);
+  if (Math.abs(n) >= 1e9) return (n / 1e9).toFixed(n >= 1e10 ? 1 : 2).replace(/\.?0+$/, "") + "B";
+  if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 1 : 2).replace(/\.?0+$/, "") + "M";
+  if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(n >= 1e4 ? 1 : 2).replace(/\.?0+$/, "") + "K";
+  return String(n);
+};
 const fmtPct = (v) => (v == null ? "0%" : (v * 100).toFixed(1) + "%");
 const fmtTime = (ms) => {
   const d = new Date(ms);
@@ -141,6 +148,13 @@ function initLogin() {
 
 // ───────── Dashboard ─────────
 
+// Refresh knobs. KPIs + recent requests refresh on the fast tick; charts on
+// the slow tick (they're expensive to re-render and rarely change minute-to-minute).
+const FAST_REFRESH_MS = 5_000;
+const SLOW_REFRESH_MS = 30_000;
+let fastTimer = null;
+let slowTimer = null;
+
 async function initDashboard() {
   bindRangePicker();
   bindSeriesTabs();
@@ -151,6 +165,48 @@ async function initDashboard() {
     loadRecent(),
     loadTimeSeries(),
   ]);
+  // Start auto-refresh loops. They re-fetch on a schedule; tab visibility
+  // pauses them so we don't hammer the proxy while the dashboard is hidden.
+  startAutoRefresh();
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) stopAutoRefresh();
+    else { startAutoRefresh(); refreshFastTick(); refreshSlowTick(); }
+  });
+}
+
+function startAutoRefresh() {
+  stopAutoRefresh();
+  fastTimer = setInterval(refreshFastTick, FAST_REFRESH_MS);
+  slowTimer = setInterval(refreshSlowTick, SLOW_REFRESH_MS);
+}
+function stopAutoRefresh() {
+  if (fastTimer) clearInterval(fastTimer);
+  if (slowTimer) clearInterval(slowTimer);
+  fastTimer = slowTimer = null;
+}
+
+async function refreshFastTick() {
+  setLiveState("pending");
+  try {
+    await Promise.all([loadSummary(), loadRecent()]);
+    setLiveState("ok");
+  } catch {
+    setLiveState("error");
+  }
+}
+async function refreshSlowTick() {
+  await Promise.all([loadTopKeys(), loadTopModels(), loadTimeSeries()]);
+}
+
+function setLiveState(kind) {
+  const dot = document.getElementById("live-dot");
+  const text = document.getElementById("live-text");
+  if (!dot || !text) return;
+  dot.classList.remove("is-stale", "is-error");
+  if (kind === "ok") { text.textContent = "live"; }
+  else if (kind === "pending") { text.textContent = "syncing…"; dot.classList.add("is-stale"); }
+  else if (kind === "error") { text.textContent = "offline"; dot.classList.add("is-error"); }
+  else if (kind === "stale") { text.textContent = "stale"; dot.classList.add("is-stale"); }
 }
 
 function bindSeriesTabs() {
@@ -242,13 +298,38 @@ function bindRangePicker() {
 async function loadSummary() {
   try {
     const s = await api.get(`/admin/api/stats/summary?${rangeParams()}`);
-    setKpi("cost", fmtUSD(s.cost_usd), `${fmtNum(s.requests)} requests`);
-    setKpi("requests", fmtNum(s.requests),
-      `${fmtNum(s.errors)} errors · ${fmtPct(s.errors / Math.max(s.requests, 1))}`);
-    setKpi("tokens", `${fmtNum(s.input_tokens)} / ${fmtNum(s.output_tokens)}`,
-      `${fmtNum(s.total_tokens)} total`);
-    setKpi("cache", fmtPct(s.cache_hit_rate),
-      `${fmtNum(s.cache_hits)} cache hits`);
+
+    // 1) Tokens — the headline metric. Compact form for the big card, full
+    //    "input / output" pair in the footer so operators can still see the split.
+    const totalTok = s.total_tokens ?? 0;
+    setKpi("tokens",
+      `${fmtCompact(totalTok)}`,
+      `${fmtNum(s.input_tokens)} in · ${fmtNum(s.output_tokens)} out`);
+
+    // 2) Sessions — active (enabled) API keys. Always-on fleet metric.
+    setKpi("sessions", `${fmtNum(s.active_keys ?? 0)}`,
+      `${fmtNum(s.active_keys ?? 0)} enabled`);
+
+    // 3) Messages — request count for the current range.
+    const errRate = (s.errors ?? 0) / Math.max(s.requests || 1, 1);
+    setKpi("messages", `${fmtNum(s.requests ?? 0)}`,
+      `${fmtNum(s.errors ?? 0)} errors · ${fmtPct(errRate)}`);
+
+    // 4) Cost — total spend in the range.
+    setKpi("cost", `${fmtUSD(s.cost_usd)}`,
+      `${fmtNum(s.requests ?? 0)} requests`);
+
+    // 5) Cache — hit rate.
+    setKpi("cache", `${fmtPct(s.cache_hit_rate)}`,
+      `${fmtNum(s.cache_hits ?? 0)} cache hits`);
+
+    // 6) Top model — show name; "—" when there's no traffic yet.
+    if (s.top_model) {
+      const share = s.top_model_share > 0 ? ` · ${fmtPct(s.top_model_share)} share` : "";
+      setKpi("topmodel", `${s.top_model}`, `${fmtNum(s.requests ?? 0)} requests${share}`);
+    } else {
+      setKpi("topmodel", `—`, `no traffic in range`);
+    }
   } catch (e) {
     console.error("summary:", e);
   }
@@ -257,7 +338,15 @@ async function loadSummary() {
 function setKpi(key, value, foot) {
   const card = document.querySelector(`[data-kpi="${key}"]`);
   if (!card) return;
-  card.querySelector(".kpi-value").textContent = value;
+  const valEl = card.querySelector(".kpi-value");
+  // Briefly flash when the value changes so the operator notices motion.
+  if (valEl.textContent !== value) {
+    valEl.textContent = value;
+    valEl.classList.remove("kpi-flash");
+    // Force reflow so the animation restarts on consecutive changes.
+    void valEl.offsetWidth;
+    valEl.classList.add("kpi-flash");
+  }
   card.querySelector("[data-kpi-foot]").textContent = foot || "";
 }
 

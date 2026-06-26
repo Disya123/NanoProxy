@@ -3,34 +3,49 @@
   <p class="eyebrow">overview</p>
   <div class="hero-head">
     <h1 class="display">Spend & throughput at a glance.</h1>
-    <div class="range-picker" role="tablist" aria-label="Time range">
-      <button class="range-btn is-active" data-range="24h">24h</button>
-      <button class="range-btn" data-range="7d">7d</button>
-      <button class="range-btn" data-range="30d">30d</button>
-      <button class="range-btn" data-range="custom">Custom</button>
+    <div class="hero-meta">
+      <span class="live-label" id="live-label" title="Auto-refreshes every 5 seconds">
+        <span class="live-dot" id="live-dot"></span><span id="live-text">live</span>
+      </span>
+      <div class="range-picker" role="tablist" aria-label="Time range">
+        <button class="range-btn is-active" data-range="24h">24h</button>
+        <button class="range-btn" data-range="7d">7d</button>
+        <button class="range-btn" data-range="30d">30d</button>
+        <button class="range-btn" data-range="custom">Custom</button>
+      </div>
     </div>
   </div>
 </section>
 
 <section class="kpi-grid" id="kpi-grid">
-  <article class="kpi kpi-lg" data-kpi="cost">
-    <p class="kpi-eyebrow">Total cost</p>
-    <p class="kpi-value mono"><span class="skeleton" style="width:7ch;height:1em;display:inline-block"></span></p>
-    <p class="kpi-foot mono" data-kpi-foot>—</p>
-  </article>
-  <article class="kpi" data-kpi="requests">
-    <p class="kpi-eyebrow">Requests</p>
-    <p class="kpi-value mono"><span class="skeleton" style="width:6ch;height:1em;display:inline-block"></span></p>
-    <p class="kpi-foot mono" data-kpi-foot>—</p>
-  </article>
-  <article class="kpi" data-kpi="tokens">
-    <p class="kpi-eyebrow">Tokens in / out</p>
+  <article class="kpi kpi-lg kpi-tokens" data-kpi="tokens">
+    <p class="kpi-eyebrow">Token usage</p>
     <p class="kpi-value mono"><span class="skeleton" style="width:8ch;height:1em;display:inline-block"></span></p>
+    <p class="kpi-foot mono" data-kpi-foot>—</p>
+  </article>
+  <article class="kpi" data-kpi="sessions">
+    <p class="kpi-eyebrow">Sessions</p>
+    <p class="kpi-value mono"><span class="skeleton" style="width:3ch;height:1em;display:inline-block"></span></p>
+    <p class="kpi-foot mono" data-kpi-foot>—</p>
+  </article>
+  <article class="kpi" data-kpi="messages">
+    <p class="kpi-eyebrow">Messages</p>
+    <p class="kpi-value mono"><span class="skeleton" style="width:4ch;height:1em;display:inline-block"></span></p>
+    <p class="kpi-foot mono" data-kpi-foot>—</p>
+  </article>
+  <article class="kpi" data-kpi="cost">
+    <p class="kpi-eyebrow">Total cost</p>
+    <p class="kpi-value mono"><span class="skeleton" style="width:6ch;height:1em;display:inline-block"></span></p>
     <p class="kpi-foot mono" data-kpi-foot>—</p>
   </article>
   <article class="kpi" data-kpi="cache">
     <p class="kpi-eyebrow">Cache hit rate</p>
     <p class="kpi-value mono"><span class="skeleton" style="width:5ch;height:1em;display:inline-block"></span></p>
+    <p class="kpi-foot mono" data-kpi-foot>—</p>
+  </article>
+  <article class="kpi" data-kpi="topmodel">
+    <p class="kpi-eyebrow">Top model</p>
+    <p class="kpi-value mono kpi-value-name"><span class="skeleton" style="width:10ch;height:1em;display:inline-block"></span></p>
     <p class="kpi-foot mono" data-kpi-foot>—</p>
   </article>
 </section>

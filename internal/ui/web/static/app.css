@@ -434,6 +434,12 @@ body::before {
   flex-wrap: wrap;
 }
 .hero-head .display { margin: 0; }
+.hero-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
 
 /* ───────── Range picker (chip-like buttons) ───────── */
 
@@ -465,20 +471,23 @@ body::before {
   color: var(--text);
 }
 
-/* ───────── KPI grid (asymmetric, never 3 equal cards) ───────── */
+/* ───────── KPI grid (3×2 bento, tokens primary) ───────── */
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr;
+  grid-auto-rows: minmax(112px, auto);
   gap: 12px;
 }
+.kpi-tokens { grid-row: span 2; }
+.kpi-value-name { font-size: clamp(16px, 1.6vw, 20px); font-weight: 500; }
 @media (max-width: 980px) {
   .kpi-grid { grid-template-columns: 1fr 1fr; }
-  .kpi-lg { grid-column: 1 / -1; }
+  .kpi-tokens { grid-column: 1 / -1; grid-row: auto; }
 }
 @media (max-width: 540px) {
   .kpi-grid { grid-template-columns: 1fr; }
-  .kpi-lg { grid-column: auto; }
+  .kpi-tokens { grid-column: auto; }
 }
 
 .kpi {
@@ -909,5 +918,42 @@ body::before {
   white-space: pre;
 }
 
-/* ───────── Notification toast (login errors etc.) ───────── */s e l e c t   o p t i o n   {   b a c k g r o u n d :   v a r ( - - s u r f a c e - 1 ) ;   c o l o r :   v a r ( - - t e x t ) ;   }  
- 
+/* ───────── Notification toast (login errors etc.) ───────── */select option { background: var(--surface-1); color: var(--text); }
+
+/* ───────── Live indicator (auto-refresh heartbeat) ───────── */
+
+.live-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  margin-right: 6px;
+  vertical-align: 1px;
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
+  animation: live-pulse 2s ease-out infinite;
+}
+.live-dot.is-stale { background: #f59e0b; animation: none; }
+.live-dot.is-error { background: #ef4444; animation: none; }
+@keyframes live-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); }
+  70%  { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+.live-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Brief flash on a KPI value when it changes during an auto-refresh tick. */
+@keyframes kpi-flash {
+  0%   { color: var(--text); text-shadow: 0 0 0 rgba(59, 130, 246, 0); }
+  35%  { color: #93c5fd; text-shadow: 0 0 14px rgba(59, 130, 246, 0.45); }
+  100% { color: var(--text); text-shadow: 0 0 0 rgba(59, 130, 246, 0); }
+}
+.kpi-value.kpi-flash { animation: kpi-flash 700ms ease-out; }

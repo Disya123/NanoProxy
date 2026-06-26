@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 )
@@ -37,18 +38,21 @@ func (r Range) ResolveMS() (fromMS, toMS int64) {
 
 // Summary is the headline KPI block.
 type Summary struct {
-	Range        Range  `json:"range"`
-	Requests     int    `json:"requests"`
-	Errors       int    `json:"errors"`
-	InputTokens  int64  `json:"input_tokens"`
-	OutputTokens int64  `json:"output_tokens"`
-	Reasoning    int64  `json:"reasoning_tokens"`
-	TotalTokens  int64  `json:"total_tokens"`
-	CostUSD      float64 `json:"cost_usd"`
-	CacheHits    int64   `json:"cache_hits"`
-	CacheHitRate float64 `json:"cache_hit_rate"`
-	AvgLatencyMS int     `json:"avg_latency_ms"`
-	ToolErrors   int     `json:"tool_errors"`
+	Range         Range   `json:"range"`
+	Requests      int     `json:"requests"`
+	Errors        int     `json:"errors"`
+	InputTokens   int64   `json:"input_tokens"`
+	OutputTokens  int64   `json:"output_tokens"`
+	Reasoning     int64   `json:"reasoning_tokens"`
+	TotalTokens   int64   `json:"total_tokens"`
+	CostUSD       float64 `json:"cost_usd"`
+	CacheHits     int64   `json:"cache_hits"`
+	CacheHitRate  float64 `json:"cache_hit_rate"`
+	AvgLatencyMS  int     `json:"avg_latency_ms"`
+	ToolErrors    int     `json:"tool_errors"`
+	ActiveKeys    int     `json:"active_keys"`
+	TopModel      string  `json:"top_model"`
+	TopModelShare float64 `json:"top_model_share"`
 }
 
 // Summary returns aggregate KPIs for the range, computed from requests.
@@ -84,6 +88,34 @@ func (s *Store) Summary(ctx context.Context, r Range) (Summary, error) {
 	if out.InputTokens > 0 {
 		out.CacheHitRate = float64(out.CacheHits) / float64(out.InputTokens)
 	}
+
+	// Active keys — count of enabled api_keys (independent of the time range,
+	// since keys are an always-on fleet rather than a per-range metric).
+	if err := s.DB.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM api_keys WHERE enabled = 1`,
+	).Scan(&out.ActiveKeys); err != nil {
+		return out, fmt.Errorf("summary keys: %w", err)
+	}
+
+	// Top model — highest request count within the range.
+	topRow := s.DB.QueryRowContext(ctx, `
+		SELECT model, SUM(requests), COALESCE(SUM(requests), 0)
+		FROM daily_stats
+		WHERE day >= ? AND day < ?
+		GROUP BY model
+		ORDER BY 2 DESC
+		LIMIT 1`,
+		fmtDay(fromMS), fmtDay(toMS))
+	var topSum int64
+	if err := topRow.Scan(&out.TopModel, &topSum, &topSum); err == nil {
+		if out.Requests > 0 && topSum > 0 {
+			out.TopModelShare = float64(topSum) / float64(out.Requests)
+		}
+	} else if err != sql.ErrNoRows {
+		// Any error other than "no rows" is real; bubble it up so the caller can log it.
+		return out, fmt.Errorf("summary top model: %w", err)
+	}
+
 	return out, nil
 }
 
