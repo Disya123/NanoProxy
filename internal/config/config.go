@@ -18,6 +18,7 @@ type Config struct {
 	Storage  StorageConfig  `yaml:"storage"`
 	Admin    AdminConfig    `yaml:"admin"`
 	Limits   LimitsConfig   `yaml:"limits"`
+	Features FeaturesConfig `yaml:"features"`
 }
 
 type ServerConfig struct {
@@ -51,6 +52,11 @@ type LimitsConfig struct {
 	MaxConcurrent int   `yaml:"max_concurrent"`
 }
 
+type FeaturesConfig struct {
+	CompressImages bool `yaml:"compress_images"`
+	ImageQuality   int  `yaml:"image_quality"`
+}
+
 // Default returns sensible defaults used when keys are missing in YAML.
 func Default() Config {
 	return Config{
@@ -76,6 +82,10 @@ func Default() Config {
 		Limits: LimitsConfig{
 			MaxBodyBytes:  20 << 20, // 20 MiB
 			MaxConcurrent: 64,
+		},
+		Features: FeaturesConfig{
+			CompressImages: true,
+			ImageQuality:   85,
 		},
 	}
 }

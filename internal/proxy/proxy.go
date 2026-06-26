@@ -114,6 +114,15 @@ func (p *Proxy) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Compress images in the body if enabled
+	if p.Cfg.Features.CompressImages {
+		if compressedBody, err := CompressImages(body, p.Cfg.Features.ImageQuality); err == nil {
+			body = compressedBody
+		} else {
+			log.Printf("[Proxy] image compression failed for key %d: %v", key.ID, err)
+		}
+	}
+
 	// Apply per-key sampler config (if any). MergeSamplers may override the
 	// stream flag and inject default generation parameters into the body.
 	cfg := ParseSamplerConfig(key.SamplerConfig)
