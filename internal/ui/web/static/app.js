@@ -3,7 +3,7 @@
 
 const api = {
   async get(url) {
-    const res = await fetch(url, { credentials: "same-origin" });
+    const res = await fetch(url, { credentials: "same-origin", cache: "no-cache" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   },
@@ -558,12 +558,13 @@ async function initKeys() {
     if (fd.get("limit_output_tokens")) { body.limit_output_tokens = parseInt(fd.get("limit_output_tokens")); body.clear_output_tokens = false; }
     if (fd.get("limit_total_tokens")) { body.limit_total_tokens = parseInt(fd.get("limit_total_tokens")); body.clear_total_tokens = false; }
 
-    // Collect sampler config from the UI
-    const sampler = collectSamplerConfig();
-    body.sampler_config = sampler;
+	    // Collect sampler config from the UI
+	    const sampler = collectSamplerConfig();
+	    body.sampler_config = sampler;
+	    console.log("[limits] PATCH body sampler_config:", JSON.stringify(sampler));
 
-    try {
-      await api.patch(`/admin/api/keys/${id}`, body);
+	    try {
+	      await api.patch(`/admin/api/keys/${id}`, body);
       document.getElementById("dlg-edit-limits").close();
       loadKeys();
     } catch (err) {
