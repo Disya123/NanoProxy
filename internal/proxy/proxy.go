@@ -181,6 +181,8 @@ func (p *Proxy) handleNonStream(w http.ResponseWriter, r *http.Request,
 	}
 
 	if wasStreamForced && resp.StatusCode == http.StatusOK {
+		// Copy upstream headers (e.g. CORS) but override Content-Type
+		copyHeaders(w.Header(), resp.Header, "Content-Length", "Content-Encoding", "Content-Type")
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
