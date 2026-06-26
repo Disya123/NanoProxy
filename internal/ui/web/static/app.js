@@ -682,15 +682,14 @@ const SAMPLER_PARAMS = [
 ];
 
 // Collect sampler values from the dialog UI into a JSON object.
-// Returns the JSON string, or null if no samplers are enabled.
+// Returns an object (possibly empty). Always send this to the server
+// so it can distinguish "keep as-is" from "clear everything".
 function collectSamplerConfig() {
   const cfg = {};
-  let anyEnabled = false;
 
   for (const param of SAMPLER_PARAMS) {
     const toggle = document.querySelector(`.toggle-checkbox[data-param="${param}"]`);
     if (!toggle || !toggle.checked) continue;
-    anyEnabled = true;
 
     if (param === "force_no_stream") {
       cfg[param] = true;
@@ -724,7 +723,6 @@ function collectSamplerConfig() {
     }
   }
 
-  if (!anyEnabled) return null;
   return cfg;
 }
 
