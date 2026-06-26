@@ -17,7 +17,7 @@ WORKDIR /src
 
 # Cache module downloads. Copying go.mod alone lets `go mod download` create
 # go.sum on the first run (it's idempotent for unchanged go.mod).
-COPY go.mod ./
+COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     go mod download
