@@ -11,6 +11,9 @@ import (
 	"image/jpeg"
 	_ "image/png"
 	"strings"
+
+	xdraw "golang.org/x/image/draw"
+	_ "golang.org/x/image/webp"
 )
 
 // CompressImages recursively scans a JSON payload for base64 image data URIs
@@ -84,11 +87,29 @@ func compressBase64Image(dataURI string, quality int) (string, bool) {
 		return "", false
 	}
 
-	// JPEG doesn't support transparency. Create an opaque white background.
+	// Calculate new dimensions (max 2048 on any side)
 	bounds := img.Bounds()
-	opaque := image.NewRGBA(bounds)
-	draw.Draw(opaque, bounds, &image.Uniform{color.White}, image.Point{}, draw.Src)
-	draw.Draw(opaque, bounds, img, bounds.Min, draw.Over)
+	width := bounds.Dx()
+	height := bounds.Dy()
+	const maxDim = 2048
+	if width > maxDim || height > maxDim {
+		if width > height {
+			height = (height * maxDim) / width
+			width = maxDim
+		} else {
+			width = (width * maxDim) / height
+			height = maxDim
+		}
+	}
+
+	newBounds := image.Rect(0, 0, width, height)
+	opaque := image.NewRGBA(newBounds)
+
+	// Fill with white background
+	draw.Draw(opaque, opaque.Bounds(), &image.Uniform{color.White}, image.Point{}, draw.Src)
+
+	// Scale and draw the original image onto the opaque canvas
+	xdraw.ApproxBiLinear.Scale(opaque, opaque.Bounds(), img, bounds, draw.Over, nil)
 
 	var buf bytes.Buffer
 	err = jpeg.Encode(&buf, opaque, &jpeg.Options{Quality: quality})
