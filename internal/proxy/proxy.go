@@ -113,12 +113,23 @@ func (p *Proxy) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Apply per-key sampler config (if any). MergeSamplers may override the
+	// stream flag and inject default generation parameters into the body.
+	cfg := ParseSamplerConfig(key.SamplerConfig)
+	modifiedBody, wasStreamForced, err := MergeSamplers(body, cfg)
+	if err != nil {
+		// Log but don't fail — the original body is still valid.
+		log.Printf("[proxy] sampler merge error for key %d: %v", key.ID, err)
+		modifiedBody = body
+	}
+	meta.Stream = meta.Stream && !wasStreamForced
+
 	// Dispatch to stream or non-stream handler.
 	if meta.Stream {
-		p.handleStream(w, r, key, body, meta.Model)
+		p.handleStream(w, r, key, modifiedBody, meta.Model)
 		return
 	}
-	p.handleNonStream(w, r, key, body, meta.Model)
+	p.handleNonStream(w, r, key, modifiedBody, meta.Model)
 }
 
 // handleNonStream performs a blocking upstream call. The response body is

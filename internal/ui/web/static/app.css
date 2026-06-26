@@ -820,6 +820,107 @@ body::before {
   margin: 0;
 }
 
+/* ───────── Sampler config (key limits dialog) ───────── */
+.dialog-wide .dialog-body { width: min(540px, 94vw); }
+
+.sampler-divider {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 20px 0 16px;
+}
+.dialog-subtitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+}
+.sampler-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 16px;
+}
+.sampler-row {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s;
+}
+.sampler-row:hover { background: rgba(255,255,255,0.03); }
+.sampler-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+.sampler-param-name {
+  font-size: 13px;
+  font-weight: 450;
+  color: var(--text);
+  flex-shrink: 0;
+}
+.sampler-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sampler-input {
+  width: 120px;
+  padding: 4px 8px;
+  font-size: 12px;
+  text-align: right;
+}
+.sampler-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+/* Toggle switch */
+.toggle-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 32px;
+  height: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.toggle-checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--surface-2);
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  transition: background 0.2s, border-color 0.2s;
+}
+.toggle-slider::before {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  left: 2px;
+  top: 2px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+.toggle-checkbox:checked + .toggle-slider {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.toggle-checkbox:checked + .toggle-slider::before {
+  transform: translateX(14px);
+  background: #fff;
+}
+
 /* ───────── Stagger fade-in for cards ───────── */
 
 .kpi-grid > .kpi:nth-child(1) { animation: fade-up var(--dur-slow) var(--ease-spring) 80ms both; }

@@ -55,7 +55,7 @@
   </div>
 </dialog>
 
-<dialog id="dlg-edit-limits" class="dialog">
+<dialog id="dlg-edit-limits" class="dialog dialog-wide">
   <form id="form-edit-limits" class="dialog-body" autocomplete="off">
     <h2 class="dialog-title">Edit Limits</h2>
     <input type="hidden" name="id" id="edit-limits-id">
@@ -89,6 +89,117 @@
       <span class="field-label">Total Tokens Limit (optional)</span>
       <input class="input mono" name="limit_total_tokens" id="edit-limit-tot" type="number" min="0" step="1" placeholder="Unlimited">
     </label>
+
+    <hr class="sampler-divider">
+
+    <h3 class="dialog-subtitle">Generation defaults (samplers)</h3>
+    <p class="dialog-lead">Enable a parameter to override what clients send.</p>
+
+    <div class="sampler-grid" id="sampler-grid">
+      <div class="sampler-row">
+        <label class="sampler-toggle-row">
+          <span class="sampler-param-name">Temperature</span>
+          <div class="sampler-controls">
+            <label class="toggle-switch" title="Enable">
+              <input type="checkbox" class="toggle-checkbox" data-param="temperature">
+              <span class="toggle-slider"></span>
+            </label>
+            <input type="number" class="input mono sampler-input" data-param="temperature"
+                   step="0.1" min="0" max="2" placeholder="0.7">
+          </div>
+        </label>
+      </div>
+      <div class="sampler-row">
+        <label class="sampler-toggle-row">
+          <span class="sampler-param-name">Top P</span>
+          <div class="sampler-controls">
+            <label class="toggle-switch" title="Enable">
+              <input type="checkbox" class="toggle-checkbox" data-param="top_p">
+              <span class="toggle-slider"></span>
+            </label>
+            <input type="number" class="input mono sampler-input" data-param="top_p"
+                   step="0.05" min="0" max="1" placeholder="1.0">
+          </div>
+        </label>
+      </div>
+      <div class="sampler-row">
+        <label class="sampler-toggle-row">
+          <span class="sampler-param-name">Frequency Penalty</span>
+          <div class="sampler-controls">
+            <label class="toggle-switch" title="Enable">
+              <input type="checkbox" class="toggle-checkbox" data-param="frequency_penalty">
+              <span class="toggle-slider"></span>
+            </label>
+            <input type="number" class="input mono sampler-input" data-param="frequency_penalty"
+                   step="0.1" min="0" max="2" placeholder="0.0">
+          </div>
+        </label>
+      </div>
+      <div class="sampler-row">
+        <label class="sampler-toggle-row">
+          <span class="sampler-param-name">Presence Penalty</span>
+          <div class="sampler-controls">
+            <label class="toggle-switch" title="Enable">
+              <input type="checkbox" class="toggle-checkbox" data-param="presence_penalty">
+              <span class="toggle-slider"></span>
+            </label>
+            <input type="number" class="input mono sampler-input" data-param="presence_penalty"
+                   step="0.1" min="0" max="2" placeholder="0.0">
+          </div>
+        </label>
+      </div>
+      <div class="sampler-row">
+        <label class="sampler-toggle-row">
+          <span class="sampler-param-name">Max Tokens</span>
+          <div class="sampler-controls">
+            <label class="toggle-switch" title="Enable">
+              <input type="checkbox" class="toggle-checkbox" data-param="max_tokens">
+              <span class="toggle-slider"></span>
+            </label>
+            <input type="number" class="input mono sampler-input" data-param="max_tokens"
+                   step="1" min="1" placeholder="4096">
+          </div>
+        </label>
+      </div>
+      <div class="sampler-row">
+        <label class="sampler-toggle-row">
+          <span class="sampler-param-name">Seed</span>
+          <div class="sampler-controls">
+            <label class="toggle-switch" title="Enable">
+              <input type="checkbox" class="toggle-checkbox" data-param="seed">
+              <span class="toggle-slider"></span>
+            </label>
+            <input type="number" class="input mono sampler-input" data-param="seed"
+                   step="1" placeholder="42">
+          </div>
+        </label>
+      </div>
+      <div class="sampler-row">
+        <label class="sampler-toggle-row">
+          <span class="sampler-param-name">Stop</span>
+          <div class="sampler-controls">
+            <label class="toggle-switch" title="Enable">
+              <input type="checkbox" class="toggle-checkbox" data-param="stop">
+              <span class="toggle-slider"></span>
+            </label>
+            <input type="text" class="input mono sampler-input" data-param="stop"
+                   placeholder='["\n\n","\n"]' spellcheck="false">
+          </div>
+        </label>
+      </div>
+      <div class="sampler-row">
+        <label class="sampler-toggle-row">
+          <span class="sampler-param-name">Force non-streaming</span>
+          <div class="sampler-controls">
+            <label class="toggle-switch" title="Enable">
+              <input type="checkbox" class="toggle-checkbox" data-param="force_no_stream">
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="field-hint sampler-hint">Disable SSE; all requests go non-stream</span>
+          </div>
+        </label>
+      </div>
+    </div>
 
     <p class="dialog-foot">
       <button type="button" class="btn btn-ghost" data-action="cancel-limits">Cancel</button>

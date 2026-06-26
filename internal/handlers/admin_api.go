@@ -66,22 +66,30 @@ func (h *AdminAPI) ListKeys(w http.ResponseWriter, r *http.Request) {
 	for _, t := range totals {
 		byID[t.APIKeyID] = t
 	}
-	out := make([]map[string]any, 0, len(keys))
-	for _, k := range keys {
-		row := map[string]any{
-			"id":          k.ID,
-			"name":        k.Name,
-			"key_prefix":  k.KeyPrefix,
-			"enabled":     k.Enabled,
-			"budget_usd":  k.BudgetUSD,
-			"created_at":  k.CreatedAt.Format(time.RFC3339),
-			"created_at_ms": k.CreatedAt.UnixMilli(),
-			"raw_key":     k.RawKey,
-			"limit_interval":      k.LimitInterval,
-			"limit_input_tokens":  k.LimitInputTokens,
-			"limit_output_tokens": k.LimitOutputTokens,
-			"limit_total_tokens":  k.LimitTotalTokens,
-		}
+		out := make([]map[string]any, 0, len(keys))
+		for _, k := range keys {
+			var samplerCfg any
+			if k.SamplerConfig != "" {
+				var parsed any
+				if err := json.Unmarshal([]byte(k.SamplerConfig), &parsed); err == nil {
+					samplerCfg = parsed
+				}
+			}
+			row := map[string]any{
+				"id":          k.ID,
+				"name":        k.Name,
+				"key_prefix":  k.KeyPrefix,
+				"enabled":     k.Enabled,
+				"budget_usd":  k.BudgetUSD,
+				"created_at":  k.CreatedAt.Format(time.RFC3339),
+				"created_at_ms": k.CreatedAt.UnixMilli(),
+				"raw_key":     k.RawKey,
+				"limit_interval":      k.LimitInterval,
+				"limit_input_tokens":  k.LimitInputTokens,
+				"limit_output_tokens": k.LimitOutputTokens,
+				"limit_total_tokens":  k.LimitTotalTokens,
+				"sampler_config":      samplerCfg,
+			}
 		if t, ok := byID[k.ID]; ok {
 			row["spend_30d"] = t.CostUSD
 			row["requests_30d"] = t.Requests
@@ -91,21 +99,24 @@ func (h *AdminAPI) ListKeys(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-type patchKeyReq struct {
-	Name      *string  `json:"name,omitempty"`
-	Enabled   *bool    `json:"enabled,omitempty"`
-	
-	// Limits
-	LimitInterval      *string  `json:"limit_interval,omitempty"`
-	BudgetUSD          *float64 `json:"budget_usd,omitempty"`
-	ClearBudget        bool     `json:"clear_budget,omitempty"`
-	LimitInputTokens   *int64   `json:"limit_input_tokens,omitempty"`
-	ClearInputTokens   bool     `json:"clear_input_tokens,omitempty"`
-	LimitOutputTokens  *int64   `json:"limit_output_tokens,omitempty"`
-	ClearOutputTokens  bool     `json:"clear_output_tokens,omitempty"`
-	LimitTotalTokens   *int64   `json:"limit_total_tokens,omitempty"`
-	ClearTotalTokens   bool     `json:"clear_total_tokens,omitempty"`
-}
+	type patchKeyReq struct {
+		Name      *string  `json:"name,omitempty"`
+		Enabled   *bool    `json:"enabled,omitempty"`
+		
+		// Limits
+		LimitInterval      *string  `json:"limit_interval,omitempty"`
+		BudgetUSD          *float64 `json:"budget_usd,omitempty"`
+		ClearBudget        bool     `json:"clear_budget,omitempty"`
+		LimitInputTokens   *int64   `json:"limit_input_tokens,omitempty"`
+		ClearInputTokens   bool     `json:"clear_input_tokens,omitempty"`
+		LimitOutputTokens  *int64   `json:"limit_output_tokens,omitempty"`
+		ClearOutputTokens  bool     `json:"clear_output_tokens,omitempty"`
+		LimitTotalTokens   *int64   `json:"limit_total_tokens,omitempty"`
+		ClearTotalTokens   bool     `json:"clear_total_tokens,omitempty"`
+
+		// Sampler config (JSON string or object)
+		SamplerConfig *string `json:"sampler_config,omitempty"`
+	}
 
 func (h *AdminAPI) PatchKey(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r, "id")
@@ -177,11 +188,24 @@ func (h *AdminAPI) PatchKey(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := h.St.UpdateKeyLimits(r.Context(), id, interval, budget, in, out, tot); err != nil {
-			writeAPIError(w, http.StatusInternalServerError, "limits_failed", err.Error())
-			return
+				writeAPIError(w, http.StatusInternalServerError, "limits_failed", err.Error())
+				return
+			}
 		}
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+
+		// Update sampler config (JSON object or null/empty to clear).
+		if req.SamplerConfig != nil {
+			configStr := strings.TrimSpace(*req.SamplerConfig)
+			if configStr == "" || configStr == "null" || configStr == "{}" {
+				configStr = ""
+			}
+			if err := h.St.UpdateKeySamplerConfig(r.Context(), id, configStr); err != nil {
+				writeAPIError(w, http.StatusInternalServerError, "sampler_config_failed", err.Error())
+				return
+			}
+		}
+
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (h *AdminAPI) DeleteKey(w http.ResponseWriter, r *http.Request) {

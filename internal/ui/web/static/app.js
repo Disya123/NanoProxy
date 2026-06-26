@@ -554,7 +554,11 @@ async function initKeys() {
     if (fd.get("limit_input_tokens")) { body.limit_input_tokens = parseInt(fd.get("limit_input_tokens")); body.clear_input_tokens = false; }
     if (fd.get("limit_output_tokens")) { body.limit_output_tokens = parseInt(fd.get("limit_output_tokens")); body.clear_output_tokens = false; }
     if (fd.get("limit_total_tokens")) { body.limit_total_tokens = parseInt(fd.get("limit_total_tokens")); body.clear_total_tokens = false; }
-    
+
+    // Collect sampler config from the UI
+    const sampler = collectSamplerConfig();
+    body.sampler_config = sampler;
+
     try {
       await api.patch(`/admin/api/keys/${id}`, body);
       document.getElementById("dlg-edit-limits").close();
@@ -645,6 +649,7 @@ async function loadKeys() {
         document.getElementById("edit-limit-in").value = k.limit_input_tokens || "";
         document.getElementById("edit-limit-out").value = k.limit_output_tokens || "";
         document.getElementById("edit-limit-tot").value = k.limit_total_tokens || "";
+        applySamplerConfig(k.sampler_config);
         document.getElementById("dlg-edit-limits").showModal();
       }));
   } catch (e) { console.error("keys:", e); }
@@ -668,6 +673,100 @@ function escapeHtml(s) {
   })[c]);
 }
 function escapeAttr(s) { return escapeHtml(s); }
+
+// ───────── Sampler config helpers ─────────
+
+const SAMPLER_PARAMS = [
+  "temperature", "top_p", "frequency_penalty", "presence_penalty",
+  "max_tokens", "seed", "stop", "force_no_stream"
+];
+
+// Collect sampler values from the dialog UI into a JSON object.
+// Returns the JSON string, or null if no samplers are enabled.
+function collectSamplerConfig() {
+  const cfg = {};
+  let anyEnabled = false;
+
+  for (const param of SAMPLER_PARAMS) {
+    const toggle = document.querySelector(`.toggle-checkbox[data-param="${param}"]`);
+    if (!toggle || !toggle.checked) continue;
+    anyEnabled = true;
+
+    if (param === "force_no_stream") {
+      cfg[param] = true;
+      continue;
+    }
+
+    const input = document.querySelector(`.sampler-input[data-param="${param}"]`);
+    if (!input) continue;
+
+    const raw = input.value.trim();
+    if (raw === "") continue;
+
+    if (param === "stop") {
+      // Parse JSON array, e.g. ["\n\n","\n"]
+      try {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr) && arr.length > 0) {
+          cfg[param] = { enabled: true, value: arr };
+        }
+      } catch { /* keep empty */ }
+    } else if (param === "seed" || param === "max_tokens") {
+      const v = parseInt(raw, 10);
+      if (!isNaN(v)) {
+        cfg[param] = { enabled: true, value: v };
+      }
+    } else {
+      const v = parseFloat(raw);
+      if (!isNaN(v)) {
+        cfg[param] = { enabled: true, value: v };
+      }
+    }
+  }
+
+  if (!anyEnabled) return null;
+  return cfg;
+}
+
+// Apply sampler config from the server response to the dialog UI.
+function applySamplerConfig(cfg) {
+  // Reset all toggles and inputs first.
+  for (const param of SAMPLER_PARAMS) {
+    const toggle = document.querySelector(`.toggle-checkbox[data-param="${param}"]`);
+    if (toggle) toggle.checked = false;
+
+    const input = document.querySelector(`.sampler-input[data-param="${param}"]`);
+    if (input) input.value = "";
+  }
+
+  if (!cfg || typeof cfg !== "object") return;
+
+  for (const param of SAMPLER_PARAMS) {
+    const val = cfg[param];
+    if (val === undefined || val === null) continue;
+
+    const toggle = document.querySelector(`.toggle-checkbox[data-param="${param}"]`);
+    if (!toggle) continue;
+
+    if (param === "force_no_stream") {
+      toggle.checked = val === true;
+      continue;
+    }
+
+    // For typed params, val is { enabled: true, value: ... }
+    if (typeof val === "object" && val.enabled) {
+      toggle.checked = true;
+      const input = document.querySelector(`.sampler-input[data-param="${param}"]`);
+      if (input) {
+        if (param === "stop" && Array.isArray(val.value)) {
+          input.value = JSON.stringify(val.value);
+        } else if (val.value !== undefined && val.value !== null) {
+          input.value = String(val.value);
+        }
+      }
+    }
+  }
+}
 
 // ───────── Settings page ─────────
 

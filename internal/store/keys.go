@@ -33,6 +33,7 @@ type APIKey struct {
 	LimitInputTokens   *int64    `json:"limit_input_tokens,omitempty"`
 	LimitOutputTokens  *int64    `json:"limit_output_tokens,omitempty"`
 	LimitTotalTokens   *int64    `json:"limit_total_tokens,omitempty"`
+	SamplerConfig      string    `json:"sampler_config,omitempty"` // JSON; empty means no overrides
 }
 
 // CreateKey generates a fresh client key (sknp_<40 hex>), stores only its
@@ -81,7 +82,8 @@ func (s *Store) LookupKeyByHash(ctx context.Context, secret []byte, raw string) 
 	hash := hashKey(secret, raw)
 	row := s.DB.QueryRowContext(ctx,
 		`SELECT id, name, key_prefix, key_hash, enabled, budget_usd, created_at,
-		        raw_key, limit_interval, limit_input_tokens, limit_output_tokens, limit_total_tokens
+		        raw_key, limit_interval, limit_input_tokens, limit_output_tokens, limit_total_tokens,
+		        sampler_config
 		 FROM api_keys WHERE key_hash = ?`, hash)
 	var k APIKey
 	var enabled int
@@ -90,9 +92,10 @@ func (s *Store) LookupKeyByHash(ctx context.Context, secret []byte, raw string) 
 	var rawKey sql.NullString
 	var limitInt sql.NullString
 	var limIn, limOut, limTot sql.NullInt64
+	var samplerCfg sql.NullString
 
 	if err := row.Scan(&k.ID, &k.Name, &k.KeyPrefix, &k.KeyHash, &enabled, &budget, &createdMs,
-		&rawKey, &limitInt, &limIn, &limOut, &limTot); err != nil {
+		&rawKey, &limitInt, &limIn, &limOut, &limTot, &samplerCfg); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return APIKey{}, ErrKeyNotFound
 		}
@@ -104,57 +107,61 @@ func (s *Store) LookupKeyByHash(ctx context.Context, secret []byte, raw string) 
 		k.BudgetUSD = &v
 	}
 	k.CreatedAt = time.UnixMilli(createdMs)
-	if rawKey.Valid { k.RawKey = rawKey.String }
-	if limitInt.Valid { k.LimitInterval = limitInt.String } else { k.LimitInterval = "all_time" }
-	if limIn.Valid { v := limIn.Int64; k.LimitInputTokens = &v }
-	if limOut.Valid { v := limOut.Int64; k.LimitOutputTokens = &v }
-	if limTot.Valid { v := limTot.Int64; k.LimitTotalTokens = &v }
+		if rawKey.Valid { k.RawKey = rawKey.String }
+		if limitInt.Valid { k.LimitInterval = limitInt.String } else { k.LimitInterval = "all_time" }
+		if limIn.Valid { v := limIn.Int64; k.LimitInputTokens = &v }
+		if limOut.Valid { v := limOut.Int64; k.LimitOutputTokens = &v }
+		if limTot.Valid { v := limTot.Int64; k.LimitTotalTokens = &v }
+		if samplerCfg.Valid { k.SamplerConfig = samplerCfg.String }
 
-	if !k.Enabled {
-		return k, ErrKeyDisabled
+		if !k.Enabled {
+			return k, ErrKeyDisabled
+		}
+		return k, nil
 	}
-	return k, nil
-}
 
-// ListKeys returns all keys (enabled and disabled), newest first.
-func (s *Store) ListKeys(ctx context.Context) ([]APIKey, error) {
-	rows, err := s.DB.QueryContext(ctx,
-		`SELECT id, name, key_prefix, key_hash, enabled, budget_usd, created_at,
-		        raw_key, limit_interval, limit_input_tokens, limit_output_tokens, limit_total_tokens
-		 FROM api_keys ORDER BY created_at DESC`)
+	// ListKeys returns all keys (enabled and disabled), newest first.
+	func (s *Store) ListKeys(ctx context.Context) ([]APIKey, error) {
+		rows, err := s.DB.QueryContext(ctx,
+			`SELECT id, name, key_prefix, key_hash, enabled, budget_usd, created_at,
+			        raw_key, limit_interval, limit_input_tokens, limit_output_tokens, limit_total_tokens,
+			        sampler_config
+			 FROM api_keys ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	out := make([]APIKey, 0, 8)
-	for rows.Next() {
-		var k APIKey
-		var enabled int
-		var budget sql.NullFloat64
-		var createdMs int64
-		var rawKey sql.NullString
-		var limitInt sql.NullString
-		var limIn, limOut, limTot sql.NullInt64
+		for rows.Next() {
+			var k APIKey
+			var enabled int
+			var budget sql.NullFloat64
+			var createdMs int64
+			var rawKey sql.NullString
+			var limitInt sql.NullString
+			var limIn, limOut, limTot sql.NullInt64
+			var samplerCfg sql.NullString
 
-		if err := rows.Scan(&k.ID, &k.Name, &k.KeyPrefix, &k.KeyHash, &enabled, &budget, &createdMs,
-			&rawKey, &limitInt, &limIn, &limOut, &limTot); err != nil {
-			return nil, err
-		}
-		k.Enabled = enabled == 1
-		if budget.Valid {
-			v := budget.Float64
-			k.BudgetUSD = &v
-		}
-		k.CreatedAt = time.UnixMilli(createdMs)
-		if rawKey.Valid { k.RawKey = rawKey.String }
-		if limitInt.Valid { k.LimitInterval = limitInt.String } else { k.LimitInterval = "all_time" }
-		if limIn.Valid { v := limIn.Int64; k.LimitInputTokens = &v }
-		if limOut.Valid { v := limOut.Int64; k.LimitOutputTokens = &v }
-		if limTot.Valid { v := limTot.Int64; k.LimitTotalTokens = &v }
+			if err := rows.Scan(&k.ID, &k.Name, &k.KeyPrefix, &k.KeyHash, &enabled, &budget, &createdMs,
+				&rawKey, &limitInt, &limIn, &limOut, &limTot, &samplerCfg); err != nil {
+				return nil, err
+			}
+			k.Enabled = enabled == 1
+			if budget.Valid {
+				v := budget.Float64
+				k.BudgetUSD = &v
+			}
+			k.CreatedAt = time.UnixMilli(createdMs)
+			if rawKey.Valid { k.RawKey = rawKey.String }
+			if limitInt.Valid { k.LimitInterval = limitInt.String } else { k.LimitInterval = "all_time" }
+			if limIn.Valid { v := limIn.Int64; k.LimitInputTokens = &v }
+			if limOut.Valid { v := limOut.Int64; k.LimitOutputTokens = &v }
+			if limTot.Valid { v := limTot.Int64; k.LimitTotalTokens = &v }
+			if samplerCfg.Valid { k.SamplerConfig = samplerCfg.String }
 
-		out = append(out, k)
-	}
+			out = append(out, k)
+		}
 	return out, rows.Err()
 }
 
@@ -195,7 +202,8 @@ func (s *Store) DeleteKey(ctx context.Context, id int64) error {
 func (s *Store) GetKeyByID(ctx context.Context, id int64) (APIKey, error) {
 	row := s.DB.QueryRowContext(ctx,
 		`SELECT id, name, key_prefix, key_hash, enabled, budget_usd, created_at,
-		        raw_key, limit_interval, limit_input_tokens, limit_output_tokens, limit_total_tokens
+		        raw_key, limit_interval, limit_input_tokens, limit_output_tokens, limit_total_tokens,
+		        sampler_config
 		 FROM api_keys WHERE id = ?`, id)
 	var k APIKey
 	var enabled int
@@ -204,9 +212,10 @@ func (s *Store) GetKeyByID(ctx context.Context, id int64) (APIKey, error) {
 	var rawKey sql.NullString
 	var limitInt sql.NullString
 	var limIn, limOut, limTot sql.NullInt64
+	var samplerCfg sql.NullString
 
 	if err := row.Scan(&k.ID, &k.Name, &k.KeyPrefix, &k.KeyHash, &enabled, &budget, &createdMs,
-		&rawKey, &limitInt, &limIn, &limOut, &limTot); err != nil {
+		&rawKey, &limitInt, &limIn, &limOut, &limTot, &samplerCfg); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return APIKey{}, ErrKeyNotFound
 		}
@@ -223,8 +232,17 @@ func (s *Store) GetKeyByID(ctx context.Context, id int64) (APIKey, error) {
 	if limIn.Valid { v := limIn.Int64; k.LimitInputTokens = &v }
 	if limOut.Valid { v := limOut.Int64; k.LimitOutputTokens = &v }
 	if limTot.Valid { v := limTot.Int64; k.LimitTotalTokens = &v }
+	if samplerCfg.Valid { k.SamplerConfig = samplerCfg.String }
 
 	return k, nil
+}
+
+// UpdateKeySamplerConfig sets the sampler_config JSON for a key.
+// Pass empty string to clear.
+func (s *Store) UpdateKeySamplerConfig(ctx context.Context, id int64, config string) error {
+	_, err := s.DB.ExecContext(ctx,
+		`UPDATE api_keys SET sampler_config = ? WHERE id = ?`, config, id)
+	return err
 }
 
 // ──────────────────────────── helpers ────────────────────────────

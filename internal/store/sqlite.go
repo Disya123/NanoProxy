@@ -157,13 +157,14 @@ func (s *Store) migrate() error {
 	// Migrations: Add new columns if they don't exist.
 	// SQLite ALTER TABLE ADD COLUMN does not support IF NOT EXISTS natively,
 	// so we execute and ignore errors.
-	alterStmts := []string{
-		`ALTER TABLE api_keys ADD COLUMN raw_key TEXT`,
-		`ALTER TABLE api_keys ADD COLUMN limit_interval TEXT NOT NULL DEFAULT 'all_time'`,
-		`ALTER TABLE api_keys ADD COLUMN limit_input_tokens INTEGER`,
-		`ALTER TABLE api_keys ADD COLUMN limit_output_tokens INTEGER`,
-		`ALTER TABLE api_keys ADD COLUMN limit_total_tokens INTEGER`,
-	}
+		alterStmts := []string{
+			`ALTER TABLE api_keys ADD COLUMN raw_key TEXT`,
+			`ALTER TABLE api_keys ADD COLUMN limit_interval TEXT NOT NULL DEFAULT 'all_time'`,
+			`ALTER TABLE api_keys ADD COLUMN limit_input_tokens INTEGER`,
+			`ALTER TABLE api_keys ADD COLUMN limit_output_tokens INTEGER`,
+			`ALTER TABLE api_keys ADD COLUMN limit_total_tokens INTEGER`,
+			`ALTER TABLE api_keys ADD COLUMN sampler_config TEXT`,
+		}
 	for _, q := range alterStmts {
 		_, _ = s.DB.Exec(q)
 	}
