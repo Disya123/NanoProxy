@@ -27,7 +27,10 @@ const api = {
       headers: { "Content-Type": "application/json" },
       body: body ? JSON.stringify(body) : null,
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || `HTTP ${res.status}`);
+    }
     return res.json();
   },
   async put(url, body) {
